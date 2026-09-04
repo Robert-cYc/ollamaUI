@@ -1,0 +1,663 @@
+@echo off
+setlocal
+title Ollama Chat - All-in-One Launcher
+cd /d "%~dp0"
+
+set "PORT=8080"
+set "PAGE=ollama-chat.html"
+set "OLLAMA_ORIGINS=*"
+set "OLLAMA_HOST=127.0.0.1:11434"
+
+if /i "%~1"=="/permanent" goto _permanent
+if /i "%~1"=="/startup"   goto _startup
+if /i "%~1"=="/help"      goto _help
+
+echo.
+echo   ============================================
+echo      OLLAMA CHAT  -  all-in-one launcher
+echo   ============================================
+echo.
+
+echo [1/6] Extracting web app...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$s=Get-Content -LiteralPath '%~f0' -Encoding UTF8;" ^
+  "$i=[array]::IndexOf($s,'@@@HTML_PAYLOAD@@@');" ^
+  "$j=[array]::IndexOf($s,'@@@PS1_PAYLOAD@@@');" ^
+  "$enc=New-Object System.Text.UTF8Encoding $false;" ^
+  "[IO.File]::WriteAllLines((Join-Path '%~dp0' 'ollama-chat.html'),$s[($i+1)..($j-1)],$enc);" ^
+  "[IO.File]::WriteAllLines((Join-Path '%~dp0' '_webserver.ps1'),$s[($j+1)..($s.Count-1)],$enc);"
+if not exist "%~dp0ollama-chat.html" (
+  echo      ERROR: extraction failed. Save this .bat as UTF-8 without BOM.
+  pause & exit /b 1
+)
+echo      ollama-chat.html  +  _webserver.ps1   OK
+
+echo [2/6] Stopping any Ollama started without CORS...
+taskkill /F /IM "ollama app.exe" >nul 2>&1
+taskkill /F /IM "ollama.exe"     >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+echo [3/6] Starting: OLLAMA_ORIGINS=* ^&^& ollama serve
+start "Ollama Server" /min cmd /c "ollama serve"
+
+echo [4/6] Waiting for API on %OLLAMA_HOST% ...
+powershell -NoProfile -Command ^
+  "for($i=0;$i -lt 40;$i++){try{Invoke-RestMethod http://127.0.0.1:11434/api/tags -TimeoutSec 1 | Out-Null; exit 0}catch{Start-Sleep -Milliseconds 750}}; exit 1"
+if errorlevel 1 (
+  echo      ERROR: Ollama never answered. Is it installed? Try running: ollama serve
+  pause & exit /b 1
+)
+echo      API is live.
+
+echo [5/6] Serving page on http://localhost:%PORT%
+where python >nul 2>&1
+if %errorlevel%==0 (
+  start "Ollama Page Server" /min cmd /c "python -m http.server %PORT% --bind 127.0.0.1"
+) else (
+  start "Ollama Page Server" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_webserver.ps1" -Port %PORT% -Root "%~dp0"
+)
+timeout /t 2 /nobreak >nul
+
+echo [6/6] Opening browser...
+start "" "http://localhost:%PORT%/%PAGE%"
+
+echo.
+echo   Everything is running.
+echo   Extras:   ollama-chat.bat /permanent   (set env vars forever)
+echo             ollama-chat.bat /startup     (auto-run at Windows login)
+echo.
+echo   Press any key here to SHUT DOWN the server and page host.
+pause >nul
+taskkill /F /IM ollama.exe >nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq Ollama Page Server*" >nul 2>&1
+exit /b 0
+
+:_permanent
+echo Setting persistent user environment variables...
+setx OLLAMA_ORIGINS "*"            >nul
+setx OLLAMA_HOST    "127.0.0.1:11434" >nul
+echo   OLLAMA_ORIGINS = *
+echo   OLLAMA_HOST    = 127.0.0.1:11434
+echo Done. Quit Ollama from the tray and relaunch it once.
+pause & exit /b 0
+
+:_startup
+powershell -NoProfile -Command ^
+  "$w=New-Object -ComObject WScript.Shell;" ^
+  "$p=Join-Path $w.SpecialFolders('Startup') 'Ollama Chat.lnk';" ^
+  "$s=$w.CreateShortcut($p); $s.TargetPath='%~f0'; $s.WorkingDirectory='%~dp0';" ^
+  "$s.WindowStyle=7; $s.Description='Ollama Chat auto-launcher'; $s.Save();" ^
+  "Write-Host ('Shortcut created: ' + $p)"
+pause & exit /b 0
+
+:_help
+echo   ollama-chat.bat              run everything now
+echo   ollama-chat.bat /permanent   setx OLLAMA_ORIGINS + OLLAMA_HOST
+echo   ollama-chat.bat /startup     add to Windows startup folder
+pause & exit /b 0
+
+@@@HTML_PAYLOAD@@@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama Chat</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 10px 16px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 15px; font-weight: 600; }
+  select, button, textarea, input { background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+    border-radius: 6px; padding: 7px 11px; font-size: 13px; font-family: inherit; }
+  select { min-width: 200px; cursor: pointer; }
+  button { cursor: pointer; } button:hover:not(:disabled) { background: #30363d; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .primary { background: #238636; border-color: #2ea043; }
+  .primary:hover:not(:disabled) { background: #2ea043; }
+  .danger:hover:not(:disabled) { background: #6e2429; }
+  .sep { width: 1px; height: 24px; background: #30363d; margin: 0 4px; }
+  .spacer { margin-left: auto; }
+  #pullName { width: 180px; }
+  .status { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #21262d; }
+  .status.on { background: #1a3a1f; color: #7ee787; }
+  .status.off { background: #3d1418; color: #ff7b72; }
+  .status.wait { background: #3d2c14; color: #e3b341; }
+  main { flex: 1; display: flex; overflow: hidden; }
+  #chatPane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #chat { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 720px; width: 100%; margin: 0 auto; display: flex; gap: 11px; }
+  .avatar { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .user .avatar { background: #1f6feb; } .bot .avatar { background: #8957e5; }
+  .bubble { line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; padding-top: 3px; }
+  .bubble pre { background: #161b22; border: 1px solid #30363d; padding: 11px;
+    border-radius: 6px; overflow-x: auto; margin: 7px 0; }
+  .bubble code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  .bubble pre code { background: none; padding: 0; }
+  .meta { font-size: 11px; color: #7d8590; margin-top: 6px; font-family: ui-monospace, monospace; }
+  .empty { margin: auto; text-align: center; color: #7d8590; }
+  #logPane { width: 420px; border-left: 1px solid #30363d; background: #010409;
+    display: flex; flex-direction: column; flex-shrink: 0; }
+  #logPane.hidden { display: none; }
+  .logHead { padding: 8px 12px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .logHead button { padding: 3px 8px; font-size: 11px; }
+  #pullDock { display: none; flex-direction: column; gap: 7px; padding: 10px;
+    background: #0d1117; border-bottom: 1px solid #30363d; max-height: 45%; overflow-y: auto; }
+  #pullDock.show { display: flex; }
+  .pullTitle { font-size: 11.5px; font-weight: 700; color: #58a6ff;
+    font-family: ui-monospace, monospace; display: flex; justify-content: space-between; }
+  .pull { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .pull .top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 3px; color: #8b949e; }
+  .pull .lbl { color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pull .pct { flex-shrink: 0; color: #7ee787; font-weight: 700; }
+  .bar { height: 7px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, #238636, #3fb950); transition: width .12s linear; }
+  .pull.done .bar i { background: #1f6feb; }
+  .pull.done .pct { color: #58a6ff; }
+  .pull .sub { color: #6e7681; margin-top: 2px; font-size: 10.5px; }
+  #logs { flex: 1; overflow-y: auto; padding: 8px; font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px; line-height: 1.55; }
+  .log { display: flex; gap: 7px; padding: 2px 4px; border-radius: 3px; }
+  .log:hover { background: #0d1117; }
+  .log .t { color: #484f58; flex-shrink: 0; }
+  .log .lv { flex-shrink: 0; width: 48px; font-weight: 700; }
+  .log .m { word-break: break-word; white-space: pre-wrap; }
+  .INFO .lv { color: #58a6ff; } .OK .lv { color: #7ee787; }
+  .WARN .lv { color: #e3b341; } .ERROR .lv { color: #ff7b72; }
+  .REQ .lv { color: #d2a8ff; } .RES .lv { color: #79c0ff; }
+  .STREAM .lv { color: #56d364; } .STAT .lv { color: #ffa657; }
+  .PULL .lv { color: #ff9bce; }
+  .ERROR .m { color: #ff7b72; } .STAT .m { color: #ffa657; }
+  footer { padding: 14px 20px 18px; border-top: 1px solid #30363d; background: #161b22; }
+  .composer { max-width: 720px; margin: 0 auto; display: flex; gap: 9px; }
+  #input { flex: 1; resize: none; max-height: 170px; min-height: 42px; background: #0d1117;
+    border: 1px solid #30363d; border-radius: 8px; padding: 10px 13px; font-size: 14px; }
+  #input:focus { outline: none; border-color: #58a6ff; }
+  .cursor::after { content: "\258A"; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 0%,50%{opacity:1} 50.1%,100%{opacity:0} }
+  #setupOverlay { display:none; position:fixed; inset:0; background:rgba(1,4,9,.94);
+    z-index:999; place-items:center; }
+  #setupOverlay .card { max-width:640px; padding:28px 32px; background:#161b22;
+    border:1px solid #30363d; border-radius:12px; }
+  #setupOverlay h2 { font-size:18px; margin-bottom:6px; }
+  #setupOverlay p { color:#8b949e; font-size:13px; line-height:1.6; margin-bottom:14px; }
+  #fixCmd { background:#0d1117; border:1px solid #30363d; padding:12px; border-radius:8px;
+    font-size:12.5px; overflow-x:auto; font-family:ui-monospace,Consolas,monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ollama Chat</h1>
+  <span id="status" class="status wait">connecting...</span>
+  <select id="models"><option>Loading...</option></select>
+  <button id="refresh" title="Reload models">&#8635;</button>
+  <button id="run" class="primary">Run Model</button>
+  <button id="del" class="danger" title="Delete selected model">Delete</button>
+  <span class="sep"></span>
+  <input id="pullName" list="suggest" placeholder="llama3.2:3b">
+  <datalist id="suggest">
+    <option value="llama3.2:3b"><option value="llama3.2:1b"><option value="llama3.1:8b">
+    <option value="qwen2.5:7b"><option value="qwen2.5-coder:7b"><option value="gemma2:9b">
+    <option value="mistral:7b"><option value="phi3.5"><option value="deepseek-r1:8b">
+    <option value="nomic-embed-text">
+  </datalist>
+  <button id="pullBtn">Pull</button>
+  <button id="pullCancel" class="danger" style="display:none">Cancel</button>
+  <span class="spacer"></span>
+  <button id="clear">Clear Chat</button>
+  <button id="toggleLog">Hide Logs</button>
+</header>
+
+<main>
+  <div id="chatPane">
+    <div id="chat"><div class="empty">Pull a model, pick it, then hit <b>Run Model</b>.</div></div>
+    <footer>
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
+        <button id="send" class="primary" disabled>Send</button>
+      </div>
+    </footer>
+  </div>
+  <aside id="logPane">
+    <div class="logHead">
+      <span>Console</span>
+      <label style="font-weight:400;font-size:11px;margin-left:auto;">
+        <input type="checkbox" id="verbose"> verbose
+      </label>
+      <button id="clearLog">clear</button>
+      <button id="copyLog">copy</button>
+    </div>
+    <div id="pullDock"></div>
+    <div id="logs"></div>
+  </aside>
+</main>
+
+<div id="setupOverlay">
+  <div class="card">
+    <h2>Can't reach Ollama</h2>
+    <p>The server isn't running, or it started without <code>OLLAMA_ORIGINS</code>.
+       Run this in PowerShell:</p>
+    <pre id="fixCmd">Get-Process ollama* | Stop-Process -Force
+$env:OLLAMA_ORIGINS="*"
+ollama serve</pre>
+    <div style="display:flex;gap:8px;margin-top:14px;align-items:center;">
+      <button id="copyFix" class="primary">Copy command</button>
+      <button id="retryNow">Retry now</button>
+      <span id="retryTick" style="color:#6e7681;font-size:12px;">auto-retry in 3s...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const HOST = "http://localhost:11434";
+const $ = id => document.getElementById(id);
+let activeModel = null, history = [], busy = false, autoScroll = true;
+
+const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
+function bytes(b) {
+  if (b == null) return "?";
+  const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return b.toFixed(i < 2 ? 0 : 1) + " " + u[i];
+}
+function secs(s) {
+  if (!isFinite(s) || s < 0) return "--";
+  if (s < 60) return Math.round(s) + "s";
+  return Math.floor(s / 60) + "m " + Math.round(s % 60) + "s";
+}
+const setStatus = (t, c = "wait") => { $("status").textContent = t; $("status").className = "status " + c; };
+
+function log(level, msg, force = false) {
+  if (level === "STREAM" && !$("verbose").checked && !force) return;
+  const n = new Date();
+  const t = n.toTimeString().slice(0, 8) + "." + String(n.getMilliseconds()).padStart(3, "0");
+  const row = document.createElement("div");
+  row.className = "log " + level;
+  row.innerHTML = '<span class="t"></span><span class="lv"></span><span class="m"></span>';
+  row.querySelector(".t").textContent = t;
+  row.querySelector(".lv").textContent = level;
+  row.querySelector(".m").textContent = msg;
+  $("logs").appendChild(row);
+  if (autoScroll) $("logs").scrollTop = $("logs").scrollHeight;
+}
+$("logs").addEventListener("scroll", () => {
+  const el = $("logs");
+  autoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+});
+
+async function loadModels(quiet) {
+  const sel = $("models"), keep = sel.value;
+  if (!quiet) log("REQ", "GET " + HOST + "/api/tags");
+  const t0 = performance.now();
+  try {
+    const res = await fetch(HOST + "/api/tags");
+    if (!quiet) log("RES", res.status + " " + res.statusText + " - " + (performance.now() - t0).toFixed(0) + "ms");
+    const { models } = await res.json();
+    sel.innerHTML = "";
+    if (!models || !models.length) {
+      sel.innerHTML = "<option>No models</option>";
+      log("WARN", "No models installed - use the Pull box above");
+      setStatus("no models", "off"); return;
+    }
+    models.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+      sel.add(new Option(m.name + "  (" + (m.size / 1e9).toFixed(1) + " GB)", m.name));
+      if (!quiet) log("INFO", "- " + m.name + "  " + (m.size / 1e9).toFixed(2) + "GB  " +
+        (m.details && m.details.parameter_size || "?") + "  " + (m.details && m.details.quantization_level || ""));
+    });
+    if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+    if (!quiet) log("OK", "Found " + models.length + " model(s)");
+    setStatus(models.length + " models", "on");
+  } catch (e) {
+    sel.innerHTML = "<option>Connection failed</option>";
+    log("ERROR", "Connection failed: " + e.message);
+    setStatus("offline", "off");
+  }
+}
+
+let pullAbort = null;
+const rows = new Map();
+
+function dockRow(key, label) {
+  if (rows.has(key)) return rows.get(key);
+  const el = document.createElement("div");
+  el.className = "pull";
+  el.innerHTML = '<div class="top"><span class="lbl"></span><span class="pct">0%</span></div>' +
+                 '<div class="bar"><i></i></div><div class="sub"></div>';
+  el.querySelector(".lbl").textContent = label;
+  $("pullDock").appendChild(el);
+  const o = { el, bar: el.querySelector("i"), pct: el.querySelector(".pct"),
+              sub: el.querySelector(".sub"), lastBytes: 0, lastT: performance.now() };
+  rows.set(key, o); return o;
+}
+
+async function pullModel() {
+  const name = $("pullName").value.trim();
+  if (!name) return log("WARN", "Type a model name first, e.g. llama3.2:3b");
+  rows.clear(); $("pullDock").innerHTML = ""; $("pullDock").classList.add("show");
+  const head = document.createElement("div");
+  head.className = "pullTitle";
+  head.innerHTML = '<span></span><span id="pullOverall">starting...</span>';
+  head.querySelector("span").textContent = "Downloading " + name;
+  $("pullDock").appendChild(head);
+
+  pullAbort = new AbortController();
+  $("pullBtn").disabled = true; $("pullName").disabled = true;
+  $("pullCancel").style.display = "";
+  setStatus("pulling " + name + "...", "wait");
+  log("INFO", "=== Pull: " + name + " ===");
+  log("REQ", 'POST /api/pull {model:"' + name + '", stream:true}');
+
+  const t0 = performance.now();
+  let lastStatus = "", total = 0;
+  try {
+    const res = await fetch(HOST + "/api/pull", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name: name, stream: true }),
+      signal: pullAbort.signal
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done: fin, value } = await reader.read();
+      if (fin) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const o = JSON.parse(line);
+        if (o.error) throw new Error(o.error);
+        if (o.digest && o.total) {
+          const short = o.digest.replace("sha256:", "").slice(0, 12);
+          const r = dockRow(o.digest, "layer " + short);
+          const cur = o.completed || 0;
+          const pct = (cur / o.total) * 100;
+          r.bar.style.width = pct.toFixed(1) + "%";
+          r.pct.textContent = pct.toFixed(1) + "%";
+          const now = performance.now(), dt = (now - r.lastT) / 1000;
+          if (dt > 0.35) {
+            const speed = (cur - r.lastBytes) / dt;
+            const eta = speed > 0 ? (o.total - cur) / speed : Infinity;
+            r.sub.textContent = bytes(cur) + " / " + bytes(o.total) + " - " + bytes(speed) + "/s - ETA " + secs(eta);
+            r.lastBytes = cur; r.lastT = now;
+          }
+          if (cur >= o.total) { r.el.classList.add("done"); r.sub.textContent = bytes(o.total) + " - complete"; }
+          total = o.total;
+          const ov = $("pullOverall");
+          if (ov) ov.textContent = pct.toFixed(0) + "% - " + bytes(cur) + "/" + bytes(o.total);
+          log("STREAM", o.status + " " + short + " " + pct.toFixed(1) + "%");
+        }
+        if (o.status && o.status !== lastStatus) {
+          if (!/^pulling [0-9a-f]{12}/.test(o.status)) log("PULL", o.status);
+          lastStatus = o.status;
+        }
+        if (o.status === "success") {
+          const wall = (performance.now() - t0) / 1000;
+          log("OK", 'Pulled "' + name + '" in ' + secs(wall));
+          if (total) log("STAT", "avg speed: " + bytes(total / wall) + "/s over " + bytes(total));
+          const ov = $("pullOverall"); if (ov) ov.textContent = "done in " + secs(wall);
+          await loadModels(true);
+          const match = [...$("models").options].find(x => x.value.startsWith(name.split(":")[0]));
+          if (match) $("models").value = match.value;
+          setStatus("pulled " + name, "on");
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { log("WARN", "Pull cancelled by user"); setStatus("pull cancelled", "off"); }
+    else { log("ERROR", "Pull failed: " + e.message); setStatus("pull failed", "off"); }
+  } finally {
+    pullAbort = null;
+    $("pullBtn").disabled = false; $("pullName").disabled = false;
+    $("pullCancel").style.display = "none";
+    setTimeout(() => $("pullDock").classList.remove("show"), 6000);
+  }
+}
+
+async function delModel() {
+  const name = $("models").value;
+  if (!name || /^(No |Conn)/.test(name)) return;
+  if (!confirm('Delete "' + name + '" from disk?')) return;
+  log("REQ", 'DELETE /api/delete {model:"' + name + '"}');
+  try {
+    const res = await fetch(HOST + "/api/delete", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name: name })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    log("OK", "Deleted " + name);
+    if (activeModel === name) { activeModel = null; $("input").disabled = true; $("send").disabled = true; }
+    loadModels(true);
+  } catch (e) { log("ERROR", "Delete failed: " + e.message); }
+}
+
+async function runModel() {
+  const name = $("models").value;
+  if (!name || /^(No |Conn|Load)/.test(name)) return log("WARN", "No valid model selected");
+  $("run").disabled = true;
+  setStatus("loading " + name + "...", "wait");
+  log("INFO", "=== Loading model: " + name + " ===");
+  log("REQ", 'POST /api/generate {model:"' + name + '", prompt:"", keep_alive:"10m"}');
+  const t0 = performance.now();
+  try {
+    const res = await fetch(HOST + "/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, prompt: "", stream: false, keep_alive: "10m" })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    const data = await res.json();
+    log("RES", res.status + " OK - wall " + (performance.now() - t0).toFixed(0) + "ms");
+    log("STAT", "load_duration : " + ms(data.load_duration));
+    log("OK", 'Model "' + name + '" resident in memory');
+    psCheck();
+    activeModel = name; history = [];
+    $("chat").innerHTML = "";
+    addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
+    $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
+    $("send").disabled = false; $("input").focus();
+    setStatus("running: " + name, "on");
+  } catch (e) {
+    log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
+  } finally { $("run").disabled = false; }
+}
+
+async function psCheck() {
+  try {
+    const r = await fetch(HOST + "/api/ps");
+    const { models } = await r.json();
+    if (!models || !models.length) return log("WARN", "ollama ps -> nothing resident");
+    models.forEach(m => {
+      const gpu = m.size ? ((m.size_vram || 0) / m.size * 100).toFixed(0) : 0;
+      log("STAT", "ps -> " + m.name + " | " + bytes(m.size) + " | GPU " + gpu + "% / CPU " +
+        (100 - gpu) + "% | expires " + new Date(m.expires_at).toLocaleTimeString());
+    });
+  } catch (e) { log("WARN", "ps failed: " + e.message); }
+}
+
+async function send() {
+  const text = $("input").value.trim();
+  if (!text || busy || !activeModel) return;
+  busy = true; $("send").disabled = true;
+  $("input").value = ""; $("input").style.height = "auto";
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
+  log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
+
+  const bubble = addMsg("bot", ""); bubble.classList.add("cursor");
+  let reply = "", chunks = 0, ttft = null;
+  const t0 = performance.now();
+  try {
+    const res = await fetch(HOST + "/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: activeModel, messages: history, stream: true })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const o = JSON.parse(line);
+        if (o.message && o.message.content) {
+          if (ttft === null) { ttft = performance.now() - t0; log("OK", "First token in " + ttft.toFixed(0) + "ms (TTFT)"); }
+          chunks++; reply += o.message.content;
+          bubble.innerHTML = md(reply);
+          $("chat").scrollTop = $("chat").scrollHeight;
+          log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
+        }
+        if (o.done) {
+          const wall = performance.now() - t0;
+          const tps = o.eval_count && o.eval_duration ? (o.eval_count / (o.eval_duration / 1e9)).toFixed(1) : "?";
+          log("STAT", "prompt_tokens : " + (o.prompt_eval_count != null ? o.prompt_eval_count : "-") + "  (" + ms(o.prompt_eval_duration) + ")");
+          log("STAT", "output_tokens : " + (o.eval_count != null ? o.eval_count : "-") + "  (" + ms(o.eval_duration) + ")");
+          log("STAT", "speed         : " + tps + " tok/s");
+          log("STAT", "total_duration: " + ms(o.total_duration) + " | wall " + wall.toFixed(0) + "ms | chunks " + chunks);
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = (o.eval_count != null ? o.eval_count : "?") + " tok - " + tps + " tok/s - " +
+            (wall / 1000).toFixed(1) + "s - TTFT " + (ttft != null ? ttft.toFixed(0) : "?") + "ms";
+          bubble.after(meta);
+        }
+      }
+    }
+    history.push({ role: "assistant", content: reply });
+    log("OK", "Reply complete (" + reply.length + " chars)");
+  } catch (e) {
+    bubble.textContent = "Error: " + e.message;
+    bubble.style.color = "#ff7b72";
+    log("ERROR", "Chat failed: " + e.message);
+  } finally {
+    bubble.classList.remove("cursor");
+    busy = false; $("send").disabled = false; $("input").focus();
+  }
+}
+
+function addMsg(role, text) {
+  const w = document.createElement("div");
+  w.className = "msg " + (role === "user" ? "user" : "bot");
+  w.innerHTML = '<div class="avatar"></div><div class="bubble"></div>';
+  w.querySelector(".avatar").textContent = role === "user" ? "YOU" : "AI";
+  w.querySelector(".bubble").innerHTML = md(text);
+  $("chat").appendChild(w);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  return w.querySelector(".bubble");
+}
+function md(t) {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/```(\w*)\n([\s\S]*?)```/g, function (_, l, c) { return "<pre><code>" + c + "</code></pre>"; })
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+$("run").onclick = runModel;
+$("del").onclick = delModel;
+$("pullBtn").onclick = pullModel;
+$("pullCancel").onclick = () => { if (pullAbort) pullAbort.abort(); };
+$("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullModel(); });
+$("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
+$("send").onclick = send;
+$("clear").onclick = () => { history = []; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
+$("clearLog").onclick = () => $("logs").innerHTML = "";
+$("copyLog").onclick = () => {
+  navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
+  log("OK", "Logs copied to clipboard");
+};
+$("toggleLog").onclick = e => {
+  $("logPane").classList.toggle("hidden");
+  e.target.textContent = $("logPane").classList.contains("hidden") ? "Show Logs" : "Hide Logs";
+};
+$("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+$("input").addEventListener("input", e => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 170) + "px";
+});
+
+(function healthWatch() {
+  const ov = $("setupOverlay");
+  let timer = null, n = 3;
+  async function alive() {
+    try { const r = await fetch(HOST + "/api/tags", { cache: "no-store" }); return r.ok; }
+    catch (e) { return false; }
+  }
+  async function check() {
+    if (await alive()) {
+      if (ov.style.display === "grid") { log("OK", "Server reachable - resuming"); loadModels(); }
+      ov.style.display = "none";
+      if (timer) { clearInterval(timer); timer = null; }
+    } else {
+      if (ov.style.display !== "grid") { ov.style.display = "grid"; log("ERROR", "Ollama unreachable"); }
+      if (!timer) {
+        n = 3;
+        timer = setInterval(() => {
+          n--;
+          $("retryTick").textContent = n <= 0 ? "checking..." : "auto-retry in " + n + "s...";
+          if (n <= 0) { n = 3; check(); }
+        }, 1000);
+      }
+    }
+  }
+  $("copyFix").onclick = e => {
+    navigator.clipboard.writeText($("fixCmd").textContent);
+    e.target.textContent = "Copied";
+    setTimeout(() => e.target.textContent = "Copy command", 1500);
+  };
+  $("retryNow").onclick = check;
+  setTimeout(check, 600);
+  if (location.protocol === "file:")
+    log("WARN", "Opened via file:// - origin is null. Use the .bat launcher instead.");
+})();
+
+log("INFO", "Ollama Web Chat starting...");
+log("INFO", "Host: " + HOST);
+log("INFO", "Page origin: " + location.origin);
+loadModels();
+setInterval(() => { if (activeModel && !busy) psCheck(); }, 60000);
+</script>
+</body>
+</html>
+@@@PS1_PAYLOAD@@@
+param([int]$Port = 8080, [string]$Root = $PSScriptRoot)
+$ErrorActionPreference = "Stop"
+$mime = @{ ".html"="text/html; charset=utf-8"; ".htm"="text/html; charset=utf-8";
+           ".js"="application/javascript; charset=utf-8"; ".css"="text/css; charset=utf-8";
+           ".json"="application/json; charset=utf-8"; ".png"="image/png"; ".svg"="image/svg+xml";
+           ".ico"="image/x-icon" }
+$listener = New-Object System.Net.HttpListener
+$listener.Prefixes.Add("http://localhost:$Port/")
+try { $listener.Start() }
+catch { Write-Host "Cannot bind port $Port. Try another port or run as admin."; Start-Sleep 8; exit 1 }
+Write-Host "Serving $Root on http://localhost:$Port/  (close this window to stop)"
+while ($listener.IsListening) {
+  try {
+    $ctx = $listener.GetContext()
+    $rel = [Uri]::UnescapeDataString($ctx.Request.Url.LocalPath.TrimStart('/'))
+    if ([string]::IsNullOrWhiteSpace($rel)) { $rel = "ollama-chat.html" }
+    $file = Join-Path $Root $rel
+    $full = [IO.Path]::GetFullPath($file)
+    if ($full.StartsWith([IO.Path]::GetFullPath($Root)) -and (Test-Path $full -PathType Leaf)) {
+      $ext = [IO.Path]::GetExtension($full).ToLower()
+      $ctx.Response.ContentType = if ($mime.ContainsKey($ext)) { $mime[$ext] } else { "application/octet-stream" }
+      $b = [IO.File]::ReadAllBytes($full)
+      $ctx.Response.ContentLength64 = $b.Length
+      $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+    } else {
+      $ctx.Response.StatusCode = 404
+      $b = [Text.Encoding]::UTF8.GetBytes("404 not found: $rel")
+      $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+    }
+    $ctx.Response.Close()
+  } catch { }
+}

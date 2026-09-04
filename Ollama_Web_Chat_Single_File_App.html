@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama Chat + Logs + Pull</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 10px 16px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 15px; font-weight: 600; }
+  select, button, textarea, input { background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+    border-radius: 6px; padding: 7px 11px; font-size: 13px; font-family: inherit; }
+  select { min-width: 200px; cursor: pointer; }
+  button { cursor: pointer; } button:hover:not(:disabled) { background: #30363d; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .primary { background: #238636; border-color: #2ea043; }
+  .primary:hover:not(:disabled) { background: #2ea043; }
+  .danger:hover:not(:disabled) { background: #6e2429; }
+  .sep { width: 1px; height: 24px; background: #30363d; margin: 0 4px; }
+  .spacer { margin-left: auto; }
+  #pullName { width: 180px; }
+  .status { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #21262d; }
+  .status.on { background: #1a3a1f; color: #7ee787; }
+  .status.off { background: #3d1418; color: #ff7b72; }
+  .status.wait { background: #3d2c14; color: #e3b341; }
+
+  main { flex: 1; display: flex; overflow: hidden; }
+  #chatPane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #chat { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 720px; width: 100%; margin: 0 auto; display: flex; gap: 11px; }
+  .avatar { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .user .avatar { background: #1f6feb; } .bot .avatar { background: #8957e5; }
+  .bubble { line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; padding-top: 3px; }
+  .bubble pre { background: #161b22; border: 1px solid #30363d; padding: 11px;
+    border-radius: 6px; overflow-x: auto; margin: 7px 0; }
+  .bubble code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  .bubble pre code { background: none; padding: 0; }
+  .meta { font-size: 11px; color: #7d8590; margin-top: 6px; font-family: ui-monospace, monospace; }
+  .empty { margin: auto; text-align: center; color: #7d8590; }
+
+  #logPane { width: 420px; border-left: 1px solid #30363d; background: #010409;
+    display: flex; flex-direction: column; flex-shrink: 0; }
+  #logPane.hidden { display: none; }
+  .logHead { padding: 8px 12px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .logHead button { padding: 3px 8px; font-size: 11px; }
+
+  /* ---- PULL PROGRESS DOCK ---- */
+  #pullDock { display: none; flex-direction: column; gap: 7px; padding: 10px;
+    background: #0d1117; border-bottom: 1px solid #30363d; max-height: 45%; overflow-y: auto; }
+  #pullDock.show { display: flex; }
+  .pullTitle { font-size: 11.5px; font-weight: 700; color: #58a6ff;
+    font-family: ui-monospace, monospace; display: flex; justify-content: space-between; }
+  .pull { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .pull .top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 3px; color: #8b949e; }
+  .pull .lbl { color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pull .pct { flex-shrink: 0; color: #7ee787; font-weight: 700; }
+  .bar { height: 7px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, #238636, #3fb950); transition: width .12s linear; }
+  .pull.done .bar i { background: #1f6feb; }
+  .pull.done .pct { color: #58a6ff; }
+  .pull .sub { color: #6e7681; margin-top: 2px; font-size: 10.5px; }
+
+  #logs { flex: 1; overflow-y: auto; padding: 8px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 11.5px; line-height: 1.55; }
+  .log { display: flex; gap: 7px; padding: 2px 4px; border-radius: 3px; }
+  .log:hover { background: #0d1117; }
+  .log .t { color: #484f58; flex-shrink: 0; }
+  .log .lv { flex-shrink: 0; width: 48px; font-weight: 700; }
+  .log .m { word-break: break-word; white-space: pre-wrap; }
+  .INFO .lv { color: #58a6ff; } .OK .lv { color: #7ee787; }
+  .WARN .lv { color: #e3b341; } .ERROR .lv { color: #ff7b72; }
+  .REQ .lv { color: #d2a8ff; } .RES .lv { color: #79c0ff; }
+  .STREAM .lv { color: #56d364; } .STAT .lv { color: #ffa657; }
+  .PULL .lv { color: #ff9bce; }
+  .ERROR .m { color: #ff7b72; } .STAT .m { color: #ffa657; }
+
+  footer { padding: 14px 20px 18px; border-top: 1px solid #30363d; background: #161b22; }
+  .composer { max-width: 720px; margin: 0 auto; display: flex; gap: 9px; }
+  #input { flex: 1; resize: none; max-height: 170px; min-height: 42px; background: #0d1117;
+    border: 1px solid #30363d; border-radius: 8px; padding: 10px 13px; font-size: 14px; }
+  #input:focus { outline: none; border-color: #58a6ff; }
+  .cursor::after { content: "▊"; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 0%,50%{opacity:1} 50.1%,100%{opacity:0} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🦙 Ollama</h1>
+  <span id="status" class="status wait">connecting…</span>
+  <select id="models"><option>Loading…</option></select>
+  <button id="refresh" title="Reload models">⟳</button>
+  <button id="run" class="primary">Run Model</button>
+  <button id="del" class="danger" title="Delete selected model">🗑</button>
+  <span class="sep"></span>
+  <input id="pullName" list="suggest" placeholder="llama3.2:3b">
+  <datalist id="suggest">
+    <option value="llama3.2:3b"><option value="llama3.2:1b"><option value="llama3.1:8b">
+    <option value="qwen2.5:7b"><option value="qwen2.5-coder:7b"><option value="gemma2:9b">
+    <option value="mistral:7b"><option value="phi3.5"><option value="deepseek-r1:8b">
+    <option value="nomic-embed-text">
+  </datalist>
+  <button id="pullBtn">⬇ Pull</button>
+  <button id="pullCancel" class="danger" style="display:none">✕ Cancel</button>
+  <span class="spacer"></span>
+  <button id="clear">Clear Chat</button>
+  <button id="toggleLog">Hide Logs</button>
+</header>
+
+<main>
+  <div id="chatPane">
+    <div id="chat"><div class="empty">Pull a model, pick it, then hit <b>Run Model</b>.</div></div>
+    <footer>
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="Run a model first…" disabled></textarea>
+        <button id="send" class="primary" disabled>Send</button>
+      </div>
+    </footer>
+  </div>
+
+  <aside id="logPane">
+    <div class="logHead">
+      <span>📋 Console</span>
+      <label style="font-weight:400;font-size:11px;margin-left:auto;">
+        <input type="checkbox" id="verbose"> verbose
+      </label>
+      <button id="clearLog">clear</button>
+      <button id="copyLog">copy</button>
+    </div>
+    <div id="pullDock"></div>
+    <div id="logs"></div>
+  </aside>
+</main>
+
+<script>
+const HOST = "http://localhost:11434";
+const $ = id => document.getElementById(id);
+let activeModel = null, history = [], busy = false, autoScroll = true;
+
+/* ======== HELPERS ======== */
+const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
+function bytes(b) {
+  if (b == null) return "?";
+  const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return b.toFixed(i < 2 ? 0 : 1) + " " + u[i];
+}
+function secs(s) {
+  if (!isFinite(s) || s < 0) return "--";
+  if (s < 60) return Math.round(s) + "s";
+  const m = Math.floor(s / 60); return `${m}m ${Math.round(s % 60)}s`;
+}
+const setStatus = (t, c = "wait") => { $("status").textContent = t; $("status").className = "status " + c; };
+
+/* ======== LOGGER ======== */
+function log(level, msg, force = false) {
+  if (level === "STREAM" && !$("verbose").checked && !force) return;
+  const n = new Date();
+  const t = n.toTimeString().slice(0, 8) + "." + String(n.getMilliseconds()).padStart(3, "0");
+  const row = document.createElement("div");
+  row.className = "log " + level;
+  row.innerHTML = `<span class="t">${t}</span><span class="lv">${level}</span><span class="m"></span>`;
+  row.querySelector(".m").textContent = msg;
+  $("logs").appendChild(row);
+  if (autoScroll) $("logs").scrollTop = $("logs").scrollHeight;
+}
+$("logs").addEventListener("scroll", () => {
+  const el = $("logs");
+  autoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+});
+
+/* ======== MODEL LIST ======== */
+async function loadModels(quiet) {
+  const sel = $("models"), keep = sel.value;
+  if (!quiet) log("REQ", `GET ${HOST}/api/tags`);
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`${HOST}/api/tags`);
+    if (!quiet) log("RES", `${res.status} ${res.statusText} · ${(performance.now() - t0).toFixed(0)}ms`);
+    const { models } = await res.json();
+    sel.innerHTML = "";
+    if (!models?.length) {
+      sel.innerHTML = "<option>No models</option>";
+      log("WARN", "No models installed — use the Pull box above ↑");
+      setStatus("no models", "off"); return;
+    }
+    models.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+      sel.add(new Option(`${m.name}  (${(m.size / 1e9).toFixed(1)} GB)`, m.name));
+      if (!quiet) log("INFO", `• ${m.name}  ${(m.size / 1e9).toFixed(2)}GB  ${m.details?.parameter_size || "?"}  ${m.details?.quantization_level || ""}`);
+    });
+    if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+    if (!quiet) log("OK", `Found ${models.length} model(s)`);
+    setStatus(`${models.length} models`, "on");
+  } catch (e) {
+    sel.innerHTML = "<option>Connection failed</option>";
+    log("ERROR", `Connection failed: ${e.message}`);
+    log("WARN", "Is `ollama serve` running? Is OLLAMA_ORIGINS set?");
+    setStatus("offline", "off");
+  }
+}
+
+/* ======== PULL WITH PROGRESS ======== */
+let pullAbort = null;
+const rows = new Map();   // digest -> {el, bar, pct, sub, lastBytes, lastT}
+
+function dockRow(key, label) {
+  if (rows.has(key)) return rows.get(key);
+  const el = document.createElement("div");
+  el.className = "pull";
+  el.innerHTML = `<div class="top"><span class="lbl"></span><span class="pct">0%</span></div>
+                  <div class="bar"><i></i></div><div class="sub"></div>`;
+  el.querySelector(".lbl").textContent = label;
+  $("pullDock").appendChild(el);
+  const o = { el, bar: el.querySelector("i"), pct: el.querySelector(".pct"),
+              sub: el.querySelector(".sub"), lastBytes: 0, lastT: performance.now() };
+  rows.set(key, o); return o;
+}
+
+async function pullModel() {
+  const name = $("pullName").value.trim();
+  if (!name) return log("WARN", "Type a model name first, e.g. llama3.2:3b");
+
+  rows.clear(); $("pullDock").innerHTML = ""; $("pullDock").classList.add("show");
+  const head = document.createElement("div");
+  head.className = "pullTitle";
+  head.innerHTML = `<span>⬇ ${name}</span><span id="pullOverall">starting…</span>`;
+  $("pullDock").appendChild(head);
+
+  pullAbort = new AbortController();
+  $("pullBtn").disabled = true; $("pullName").disabled = true;
+  $("pullCancel").style.display = "";
+  setStatus(`pulling ${name}…`, "wait");
+  log("INFO", `━━━ Pull: ${name} ━━━`);
+  log("REQ", `POST /api/pull  {model:"${name}", stream:true}`);
+
+  const t0 = performance.now();
+  let lastStatus = "", done = 0, total = 0;
+
+  try {
+    const res = await fetch(`${HOST}/api/pull`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name: name, stream: true }),
+      signal: pullAbort.signal
+    });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    log("RES", `${res.status} · stream opened · ${(performance.now() - t0).toFixed(0)}ms`);
+
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+
+    while (true) {
+      const { done: fin, value } = await reader.read();
+      if (fin) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const o = JSON.parse(line);
+        if (o.error) throw new Error(o.error);
+
+        // layer download progress
+        if (o.digest && o.total) {
+          const key = o.digest;
+          const short = o.digest.replace("sha256:", "").slice(0, 12);
+          const r = dockRow(key, `layer ${short}`);
+          const cur = o.completed || 0;
+          const pct = (cur / o.total) * 100;
+          r.bar.style.width = pct.toFixed(1) + "%";
+          r.pct.textContent = pct.toFixed(1) + "%";
+
+          const now = performance.now();
+          const dt = (now - r.lastT) / 1000;
+          if (dt > 0.35) {
+            const speed = (cur - r.lastBytes) / dt;
+            const eta = speed > 0 ? (o.total - cur) / speed : Infinity;
+            r.sub.textContent = `${bytes(cur)} / ${bytes(o.total)} · ${bytes(speed)}/s · ETA ${secs(eta)}`;
+            r.lastBytes = cur; r.lastT = now;
+          }
+          if (cur >= o.total) { r.el.classList.add("done"); r.sub.textContent = `${bytes(o.total)} · complete`; }
+
+          done = cur; total = o.total;
+          const ov = $("pullOverall");
+          if (ov) ov.textContent = `${pct.toFixed(0)}% · ${bytes(cur)}/${bytes(o.total)}`;
+          log("STREAM", `${o.status} ${short} ${pct.toFixed(1)}%`);
+        }
+
+        // status transitions
+        if (o.status && o.status !== lastStatus) {
+          if (!/^pulling [0-9a-f]{12}/.test(o.status)) log("PULL", o.status);
+          lastStatus = o.status;
+        }
+
+        if (o.status === "success") {
+          const wall = (performance.now() - t0) / 1000;
+          log("OK", `✔ Pulled "${name}" in ${secs(wall)}`);
+          if (total) log("STAT", `avg speed: ${bytes(total / wall)}/s over ${bytes(total)}`);
+          const ov = $("pullOverall"); if (ov) ov.textContent = `✔ done in ${secs(wall)}`;
+          await loadModels(true);
+          $("models").value = [...$("models").options].find(o2 => o2.value.startsWith(name.split(":")[0]))?.value || $("models").value;
+          setStatus(`pulled ${name}`, "on");
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { log("WARN", "Pull cancelled by user"); setStatus("pull cancelled", "off"); }
+    else { log("ERROR", `Pull failed: ${e.message}`); setStatus("pull failed", "off"); }
+  } finally {
+    pullAbort = null;
+    $("pullBtn").disabled = false; $("pullName").disabled = false;
+    $("pullCancel").style.display = "none";
+    setTimeout(() => $("pullDock").classList.remove("show"), 6000);
+  }
+}
+
+/* ======== DELETE MODEL ======== */
+async function delModel() {
+  const name = $("models").value;
+  if (!name || /^(No |Conn)/.test(name)) return;
+  if (!confirm(`Delete "${name}" from disk?`)) return;
+  log("REQ", `DELETE /api/delete  {model:"${name}"}`);
+  try {
+    const res = await fetch(`${HOST}/api/delete`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name: name })
+    });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    log("OK", `Deleted ${name}`);
+    if (activeModel === name) { activeModel = null; $("input").disabled = true; $("send").disabled = true; }
+    loadModels(true);
+  } catch (e) { log("ERROR", `Delete failed: ${e.message}`); }
+}
+
+/* ======== RUN / WARM UP ======== */
+async function runModel() {
+  const name = $("models").value;
+  if (!name || /^(No |Conn|Load)/.test(name)) return log("WARN", "No valid model selected");
+  $("run").disabled = true;
+  setStatus(`loading ${name}…`, "wait");
+  log("INFO", `━━━ Loading model: ${name} ━━━`);
+  log("REQ", `POST /api/generate  {model:"${name}", prompt:"", keep_alive:"10m"}`);
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`${HOST}/api/generate`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, prompt: "", stream: false, keep_alive: "10m" })
+    });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    const data = await res.json();
+    log("RES", `${res.status} OK · wall ${(performance.now() - t0).toFixed(0)}ms`);
+    log("STAT", `load_duration : ${ms(data.load_duration)}`);
+    log("OK", `Model "${name}" resident in memory ✔`);
+    psCheck();
+    activeModel = name; history = [];
+    $("chat").innerHTML = "";
+    addMsg("bot", `**${name}** loaded and ready. Ask me anything!`);
+    $("input").disabled = false; $("input").placeholder = `Message ${name}…`;
+    $("send").disabled = false; $("input").focus();
+    setStatus(`running: ${name}`, "on");
+  } catch (e) {
+    log("ERROR", `Load failed: ${e.message}`); setStatus("load failed", "off");
+  } finally { $("run").disabled = false; }
+}
+
+async function psCheck() {
+  try {
+    const r = await fetch(`${HOST}/api/ps`);
+    const { models } = await r.json();
+    if (!models?.length) return log("WARN", "ollama ps → nothing resident");
+    models.forEach(m => {
+      const gpu = m.size ? ((m.size_vram || 0) / m.size * 100).toFixed(0) : 0;
+      log("STAT", `ps → ${m.name} | ${bytes(m.size)} | GPU ${gpu}% / CPU ${100 - gpu}% | expires ${new Date(m.expires_at).toLocaleTimeString()}`);
+    });
+  } catch (e) { log("WARN", "ps failed: " + e.message); }
+}
+
+/* ======== CHAT ======== */
+async function send() {
+  const text = $("input").value.trim();
+  if (!text || busy || !activeModel) return;
+  busy = true; $("send").disabled = true;
+  $("input").value = ""; $("input").style.height = "auto";
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  log("INFO", `━━━ Turn #${Math.ceil(history.length / 2)} ━━━`);
+  log("REQ", `POST /api/chat  model=${activeModel}  msgs=${history.length}  chars=${text.length}`);
+
+  const bubble = addMsg("bot", ""); bubble.classList.add("cursor");
+  let reply = "", chunks = 0, ttft = null;
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`${HOST}/api/chat`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: activeModel, messages: history, stream: true })
+    });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    log("RES", `${res.status} · stream opened · ${(performance.now() - t0).toFixed(0)}ms`);
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const o = JSON.parse(line);
+        if (o.message?.content) {
+          if (ttft === null) { ttft = performance.now() - t0; log("OK", `⚡ First token in ${ttft.toFixed(0)}ms (TTFT)`); }
+          chunks++; reply += o.message.content;
+          bubble.innerHTML = md(reply);
+          $("chat").scrollTop = $("chat").scrollHeight;
+          log("STREAM", `chunk#${chunks} ${JSON.stringify(o.message.content)}`);
+        }
+        if (o.done) {
+          const wall = performance.now() - t0;
+          const tps = o.eval_count && o.eval_duration ? (o.eval_count / (o.eval_duration / 1e9)).toFixed(1) : "?";
+          log("STAT", `prompt_tokens : ${o.prompt_eval_count ?? "-"}  (${ms(o.prompt_eval_duration)})`);
+          log("STAT", `output_tokens : ${o.eval_count ?? "-"}  (${ms(o.eval_duration)})`);
+          log("STAT", `speed         : ${tps} tok/s`);
+          log("STAT", `total_duration: ${ms(o.total_duration)}  |  wall ${wall.toFixed(0)}ms  |  chunks ${chunks}`);
+          bubble.insertAdjacentHTML("afterend",
+            `<div class="meta">${o.eval_count ?? "?"} tok · ${tps} tok/s · ${(wall / 1000).toFixed(1)}s · TTFT ${ttft?.toFixed(0) ?? "?"}ms</div>`);
+        }
+      }
+    }
+    history.push({ role: "assistant", content: reply });
+    log("OK", `Reply complete (${reply.length} chars)`);
+  } catch (e) {
+    bubble.innerHTML = `<span style="color:#ff7b72">Error: ${e.message}</span>`;
+    log("ERROR", `Chat failed: ${e.message}`);
+  } finally {
+    bubble.classList.remove("cursor");
+    busy = false; $("send").disabled = false; $("input").focus();
+  }
+}
+
+/* ======== RENDER ======== */
+function addMsg(role, text) {
+  const w = document.createElement("div");
+  w.className = "msg " + (role === "user" ? "user" : "bot");
+  w.innerHTML = `<div class="avatar">${role === "user" ? "YOU" : "AI"}</div><div class="bubble"></div>`;
+  w.querySelector(".bubble").innerHTML = md(text);
+  $("chat").appendChild(w);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  return w.querySelector(".bubble");
+}
+function md(t) {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, l, c) => `<pre><code>${c}</code></pre>`)
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+/* ======== EVENTS ======== */
+$("run").onclick = runModel;
+$("del").onclick = delModel;
+$("pullBtn").onclick = pullModel;
+$("pullCancel").onclick = () => pullAbort?.abort();
+$("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullModel(); });
+$("refresh").onclick = () => { log("INFO", "Refreshing model list…"); loadModels(); };
+$("send").onclick = send;
+$("clear").onclick = () => { history = []; $("chat").innerHTML = `<div class="empty">History cleared.</div>`; log("INFO", "Chat history cleared"); };
+$("clearLog").onclick = () => $("logs").innerHTML = "";
+$("copyLog").onclick = () => {
+  navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
+  log("OK", "Logs copied to clipboard");
+};
+$("toggleLog").onclick = e => {
+  $("logPane").classList.toggle("hidden");
+  e.target.textContent = $("logPane").classList.contains("hidden") ? "Show Logs" : "Hide Logs";
+};
+$("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+$("input").addEventListener("input", e => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 170) + "px";
+});
+
+/* ======== BOOT ======== */
+log("INFO", "Ollama Web Chat starting…");
+log("INFO", `Host: ${HOST}`);
+log("INFO", `Page origin: ${location.origin}`);
+loadModels();
+setInterval(() => { if (activeModel && !busy) psCheck(); }, 60000);
+</script>
+</body>
+</html>
