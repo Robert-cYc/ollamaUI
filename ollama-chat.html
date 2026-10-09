@@ -112,6 +112,12 @@
   </datalist>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
+  <span class="spacer"></span>
+  <span id="hwMonitor" style="font-size: 12px; display: flex; gap: 12px; color: #8b949e; font-family: ui-monospace, monospace; background: #0d1117; padding: 4px 12px; border-radius: 6px; border: 1px solid #30363d;">
+    <span title="CPU Usage">💻 <span id="hwCpu" style="color:#e6edf3;font-weight:600">--%</span></span>
+    <span title="GPU Usage">🎮 <span id="hwGpu" style="color:#e6edf3;font-weight:600">--%</span></span>
+    <span title="RAM Usage">🧠 <span id="hwRam" style="color:#e6edf3;font-weight:600">--%</span></span>
+  </span>
 </header>
 
 <main>
@@ -729,6 +735,35 @@ log("INFO", "Host: " + HOST);
 log("INFO", "Page origin: " + location.origin);
 loadModels();
 setInterval(() => { if (activeModel && !busy) psCheck(); }, 60000);
+
+let hwTrend = [];
+async function updateHardwareStatus() {
+  try {
+    const res = await fetch("http://localhost:8085/data.json");
+    if (!res.ok) return;
+    const data = await res.json();
+    let cpu = "--", gpu = "--", ram = "--";
+    
+    function findNode(node) {
+      if ((node.Text === "CPU Total" || node.Text === "CPU Core") && node.Value && node.Value.includes("%")) cpu = parseFloat(node.Value).toFixed(1);
+      if ((node.Text === "GPU Core" || node.Text === "GPU Core 3D") && node.Value && node.Value.includes("%")) gpu = parseFloat(node.Value).toFixed(1);
+      if (node.Text === "Memory" && node.Value && node.Value.includes("%")) ram = parseFloat(node.Value).toFixed(1);
+      if (node.Children) node.Children.forEach(findNode);
+    }
+    findNode(data);
+    
+    if (cpu !== "--") $("hwCpu").textContent = cpu.padStart(4, " ") + "%";
+    if (gpu !== "--") $("hwGpu").textContent = gpu.padStart(4, " ") + "%";
+    if (ram !== "--") $("hwRam").textContent = ram.padStart(4, " ") + "%";
+    
+    hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram });
+    if (hwTrend.length > 300) hwTrend.shift();
+  } catch (e) {
+    // Silently fail if LibreHardwareMonitor is not running
+  }
+}
+setInterval(updateHardwareStatus, 1000);
+updateHardwareStatus();
 </script>
 </body>
 </html>
