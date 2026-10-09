@@ -441,6 +441,14 @@ async function send(isToolRetry = false) {
     {
       type: "function",
       function: {
+        name: "get_news",
+        description: "Get the latest news headlines using Google News. You can provide an optional search query. It returns headlines and URLs. To read the full news article, use the read_url tool on one of the returned URLs.",
+        parameters: { type: "object", properties: { query: { type: "string", description: "Optional search query (e.g., 'technology', 'apple')" } } }
+      }
+    },
+    {
+      type: "function",
+      function: {
         name: "get_system_info",
         description: "Get the local computer's static system specifications like OS, RAM, and computer name."
       }
@@ -549,6 +557,21 @@ async function send(isToolRetry = false) {
             log("OK", "Tool read_url executed.");
           } catch (err) {
             log("ERROR", "Read URL failed: " + err.message);
+            history.push({ role: "tool", content: "Error: " + err.message });
+          }
+        } else if (tc.function.name === "get_news") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const q = args.query || "";
+            log("INFO", "Fetching news for: " + (q || "top stories"));
+            const url = q ? "https://news.google.com/rss/search?q=" + encodeURIComponent(q) : "https://news.google.com/rss";
+            const res = await fetch("https://r.jina.ai/" + url);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.text();
+            history.push({ role: "tool", content: data.substring(0, 4000) });
+            log("OK", "Tool get_news executed.");
+          } catch (err) {
+            log("ERROR", "Get news failed: " + err.message);
             history.push({ role: "tool", content: "Error: " + err.message });
           }
         } else if (tc.function.name === "get_hardware_status") {
