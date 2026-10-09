@@ -369,7 +369,7 @@ async function runModel() {
     log("OK", 'Model "' + name + '" resident in memory');
     psCheck();
     activeModel = name;
-    history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`." }];
+    history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`.\n4. For weather, use `get_weather`.\n5. For crypto prices, use `get_crypto_price`.\n6. For exact math, use `calculator`.\n7. For Wikipedia, use `search_wikipedia`.\n8. For current date/time, use `get_current_time`." }];
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
@@ -458,6 +458,45 @@ async function send(isToolRetry = false) {
       function: {
         name: "get_hardware_status",
         description: "Get real-time hardware status including CPU/GPU temperatures, loads, and memory usage via Libre Hardware Monitor API. Also includes a 5-minute historical trend for CPU/GPU/RAM."
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_current_time",
+        description: "Get the current local time, date, and timezone of the user."
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "calculator",
+        description: "Evaluate a mathematical expression. Use this to perform accurate calculations.",
+        parameters: { type: "object", properties: { expression: { type: "string", description: "The math expression to evaluate (e.g., '2 + 2 * 4' or '100 / 3.5')" } }, required: ["expression"] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_crypto_price",
+        description: "Get the current price and 24h change for a cryptocurrency via CoinGecko API.",
+        parameters: { type: "object", properties: { coin_id: { type: "string", description: "The CoinGecko coin ID (e.g., 'bitcoin', 'ethereum', 'dogecoin')" } }, required: ["coin_id"] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "search_wikipedia",
+        description: "Search Wikipedia for a topic and get the article summary.",
+        parameters: { type: "object", properties: { query: { type: "string", description: "The search topic" }, lang: { type: "string", description: "Language code (e.g., 'en', 'zh')", default: "zh" } }, required: ["query"] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_weather",
+        description: "Get the current weather and forecast for a specific city.",
+        parameters: { type: "object", properties: { city: { type: "string", description: "The name of the city (e.g., 'Taipei', 'New York')" } }, required: ["city"] }
       }
     }
   ];
@@ -609,6 +648,65 @@ async function send(isToolRetry = false) {
             log("ERROR", "LHM API fetch failed: " + err.message);
             history.push({ role: "tool", content: "Error fetching hardware status from http://localhost:8085/data.json. " + err.message + ". Make sure Libre Hardware Monitor web server is running." });
           }
+        } else if (tc.function.name === "get_current_time") {
+          const d = new Date();
+          const info = `Current Date/Time: ${d.toLocaleString()}\nTimezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}\nISO: ${d.toISOString()}`;
+          history.push({ role: "tool", content: info });
+          log("OK", "Tool get_current_time executed.");
+        } else if (tc.function.name === "calculator") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const result = new Function('return ' + args.expression)();
+            history.push({ role: "tool", content: `Result of ${args.expression} = ${result}` });
+            log("OK", `Tool calculator executed: ${args.expression} = ${result}`);
+          } catch (err) {
+            log("ERROR", "Calculator failed: " + err.message);
+            history.push({ role: "tool", content: "Error evaluating expression: " + err.message });
+          }
+        } else if (tc.function.name === "get_crypto_price") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            log("INFO", "Fetching crypto price for: " + args.coin_id);
+            const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${args.coin_id}&vs_currencies=usd,twd&include_24hr_change=true`);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            history.push({ role: "tool", content: JSON.stringify(data) });
+            log("OK", "Tool get_crypto_price executed for " + args.coin_id);
+          } catch (err) {
+            log("ERROR", "Crypto price failed: " + err.message);
+            history.push({ role: "tool", content: "Error: " + err.message });
+          }
+        } else if (tc.function.name === "search_wikipedia") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const lang = args.lang || "zh";
+            log("INFO", `Searching Wikipedia (${lang}) for: ${args.query}`);
+            const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(args.query)}`);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            history.push({ role: "tool", content: `Title: ${data.title}\nSummary: ${data.extract}` });
+            log("OK", "Tool search_wikipedia executed.");
+          } catch (err) {
+            log("ERROR", "Wikipedia search failed: " + err.message);
+            history.push({ role: "tool", content: "Error: " + err.message });
+          }
+        } else if (tc.function.name === "get_weather") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            log("INFO", "Fetching weather for: " + args.city);
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(args.city)}&count=1&language=zh`);
+            const geoData = await geoRes.json();
+            if (!geoData.results || !geoData.results.length) throw new Error("City not found");
+            const { latitude, longitude, name, country } = geoData.results[0];
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`);
+            const weatherData = await weatherRes.json();
+            const info = `Location: ${name}, ${country}\nCurrent: ${weatherData.current.temperature_2m}°C, Humidity ${weatherData.current.relative_humidity_2m}%\nToday's Max/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C`;
+            history.push({ role: "tool", content: info });
+            log("OK", "Tool get_weather executed.");
+          } catch (err) {
+            log("ERROR", "Weather failed: " + err.message);
+            history.push({ role: "tool", content: "Error: " + err.message });
+          }
         }
       }
       
@@ -674,7 +772,7 @@ $("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullMode
 $("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
 $("send").onclick = send;
 $("clear").onclick = () => { 
-  history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`." }];
+  history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`.\n4. For weather, use `get_weather`.\n5. For crypto prices, use `get_crypto_price`.\n6. For exact math, use `calculator`.\n7. For Wikipedia, use `search_wikipedia`.\n8. For current date/time, use `get_current_time`." }];
   $("chat").innerHTML = '<div class="empty">History cleared.</div>'; 
   log("INFO", "Chat history cleared"); 
 };
