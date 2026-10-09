@@ -22,7 +22,16 @@
   .danger:hover:not(:disabled) { background: #b32d2a; }
   .sep { width: 1px; height: 24px; background: #30363d; margin: 0 4px; }
   .spacer { margin-left: auto; }
-  #pullName { width: 280px; }
+  
+  .autocomplete { position: relative; display: inline-block; }
+  .dropdown-content {
+    display: none; position: absolute; background: #21262d; width: 100%;
+    border: 1px solid #30363d; border-radius: 6px; margin-top: 4px;
+    max-height: 250px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .dropdown-content div { padding: 6px 11px; cursor: pointer; font-size: 13px; }
+  .dropdown-content div:hover { background: #30363d; }
+  
   .status { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #21262d; }
   .status.on { background: #1a3a1f; color: #7ee787; }
   .status.off { background: #3d1418; color: #ff7b72; }
@@ -103,13 +112,10 @@
   <button id="run" class="primary">Run Model</button>
   <button id="del" class="danger" title="Delete selected model">Delete</button>
   <span class="sep"></span>
-  <input id="pullName" list="suggest" placeholder="llama3.2:3b">
-  <datalist id="suggest">
-    <option value="llama3.2:3b"><option value="llama3.2:1b"><option value="llama3.1:8b">
-    <option value="qwen2.5:7b"><option value="qwen2.5-coder:7b"><option value="gemma2:9b">
-    <option value="mistral:7b"><option value="phi3.5"><option value="deepseek-r1:8b">
-    <option value="nomic-embed-text">
-  </datalist>
+  <div class="autocomplete">
+    <input id="pullName" placeholder="llama3.2:3b" autocomplete="off" style="width: 280px;">
+    <div id="suggestList" class="dropdown-content"></div>
+  </div>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
   <span id="tokenCount" style="margin-left: 12px; font-size: 13px; color: #8b949e;">Token Used: 0</span>
@@ -777,6 +783,25 @@ log("INFO", "Host: " + HOST);
 log("INFO", "Page origin: " + location.origin);
 loadModels();
 setInterval(() => { if (activeModel && !busy) psCheck(); }, 60000);
+
+const pullName = $("pullName");
+const suggestList = $("suggestList");
+const suggestModels = ["llama3.2:3b", "llama3.2:1b", "llama3.1:8b", "qwen2.5:7b", "qwen2.5-coder:7b", "gemma2:9b", "mistral:7b", "phi3.5", "deepseek-r1:8b", "nomic-embed-text"];
+const showSuggest = () => {
+  suggestList.innerHTML = "";
+  const val = pullName.value.toLowerCase();
+  suggestModels.filter(m => m.includes(val)).forEach(m => {
+    const d = document.createElement("div");
+    d.textContent = m;
+    d.onmousedown = (e) => { e.preventDefault(); pullName.value = m; suggestList.style.display = "none"; };
+    suggestList.appendChild(d);
+  });
+  suggestList.style.display = suggestList.children.length ? "block" : "none";
+};
+pullName.addEventListener("focus", showSuggest);
+pullName.addEventListener("input", showSuggest);
+pullName.addEventListener("blur", () => suggestList.style.display = "none");
+pullName.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pullBtn").click(); });
 
 let hwTrend = [];
 async function updateHardwareStatus() {
