@@ -29,11 +29,11 @@
   main { flex: 1; display: flex; overflow: hidden; }
   #chatPane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   #chat { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-  .msg { max-width: 100%; width: 100%; margin: 0; display: flex; gap: 11px; }
+  .msg { max-width: 720px; width: 100%; margin: 0 auto; display: flex; gap: 11px; }
   .avatar { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
     display: grid; place-items: center; font-size: 11px; font-weight: 700; }
   .user .avatar { background: #1f6feb; } .bot .avatar { background: #8957e5; }
-  .bubble { min-width: 0; flex: 1; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; padding-top: 3px; }
+  .bubble { line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; padding-top: 3px; }
   .bubble pre { background: #161b22; border: 1px solid #30363d; padding: 11px;
     border-radius: 6px; overflow-x: auto; margin: 7px 0; }
   .bubble code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
@@ -75,14 +75,13 @@
   .PULL .lv { color: #ff9bce; }
   .ERROR .m { color: #ff7b72; } .STAT .m { color: #ffa657; }
   footer { padding: 14px 20px 18px; border-top: 1px solid #30363d; background: #161b22; }
-  .composer { max-width: 100%; margin: 0; display: flex; gap: 9px; }
+  .composer { max-width: 720px; margin: 0 auto; display: flex; gap: 9px; }
   #input { flex: 1; resize: none; max-height: 170px; min-height: 42px; background: #0d1117;
     border: 1px solid #30363d; border-radius: 8px; padding: 10px 13px; font-size: 14px; }
   #input:focus { outline: none; border-color: #58a6ff; }
   .cursor::after { content: "\258A"; animation: blink 1s steps(2) infinite; }
   @keyframes blink { 0%,50%{opacity:1} 50.1%,100%{opacity:0} }
-  .recording { animation: pulse 1s infinite; color: #ff7b72 !important; }
-  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+  .recording { animation: blink 1s infinite; background-color: rgba(255, 123, 114, 0.2) !important; border-color: #ff7b72 !important; }
   #setupOverlay { display:none; position:fixed; inset:0; background:rgba(1,4,9,.94);
     z-index:999; place-items:center; }
   #setupOverlay .card { max-width:640px; padding:28px 32px; background:#161b22;
@@ -92,7 +91,6 @@
   #fixCmd { background:#0d1117; border:1px solid #30363d; padding:12px; border-radius:8px;
     font-size:12.5px; overflow-x:auto; font-family:ui-monospace,Consolas,monospace; }
 </style>
-<script src="sysinfo.js"></script>
 </head>
 <body>
 
@@ -113,27 +111,18 @@
   </datalist>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
-  <span id="hwMonitor" style="margin-left: 12px; font-size: 13px; background: lightblue; border-radius: 6px; padding: 5px 10px; font-family: ui-monospace, monospace; color: #1f2328; display: flex; gap: 12px; border: 1px solid #7cb5cc; cursor: default;" title="Hardware Status (via localhost:8085)">
-    <span>CPU <b id="hwCpu" style="color: #111">--</b></span>
-    <span>GPU <b id="hwGpu" style="color: #111">--</b></span>
-    <span>VRAM <b id="hwVRam" style="color: #111">--</b></span>
-    <span>RAM <b id="hwRam" style="color: #111">--</b></span>
-    <span style="color: #4b5563; border-left: 1px solid #7cb5cc; padding-left: 12px;">5m Avg: CPU <b id="avgCpu" style="color: #111">--</b> VRAM <b id="avgVRam" style="color: #111">--</b></span>
-  </span>
   <span class="spacer"></span>
   <button id="clear">Clear Chat</button>
+  <button id="toggleLog">Hide Logs</button>
 </header>
 
 <main>
   <div id="chatPane">
     <div id="chat"><div class="empty">Pull a model, pick it, then hit <b>Run Model</b>.</div></div>
     <footer>
-      <div id="attachments" style="display:none; padding: 0 0 10px 0; gap: 8px; flex-wrap: wrap; max-width: 100%; margin: 0;"></div>
       <div class="composer">
-        <input type="file" id="imgUpload" accept="image/png, image/jpeg, image/webp" style="display:none" multiple>
-        <button id="attachBtn" title="Attach Image" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e;">&#128444;</button>
-        <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127892;</button>
         <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
+        <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
         <button id="send" class="primary" disabled>Send</button>
       </div>
     </footer>
@@ -171,8 +160,7 @@ ollama serve</pre>
 <script>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
-let activeModel = null, history = [], busy = false, autoScroll = true, currentImages = [];
-const hwTrend = [];
+let activeModel = null, history = [], busy = false, autoScroll = true;
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
@@ -198,11 +186,12 @@ function log(level, msg, force = false) {
   row.querySelector(".t").textContent = t;
   row.querySelector(".lv").textContent = level;
   row.querySelector(".m").textContent = msg;
-  $("logs").prepend(row);
-  if (autoScroll) $("logs").scrollTop = 0;
+  $("logs").appendChild(row);
+  if (autoScroll) $("logs").scrollTop = $("logs").scrollHeight;
 }
 $("logs").addEventListener("scroll", () => {
-  autoScroll = $("logs").scrollTop < 40;
+  const el = $("logs");
+  autoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
 });
 
 async function loadModels(quiet) {
@@ -371,12 +360,11 @@ async function runModel() {
     log("STAT", "load_duration : " + ms(data.load_duration));
     log("OK", 'Model "' + name + '" resident in memory');
     psCheck();
-    activeModel = name;
-    history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`.\n4. For weather, use `get_weather`.\n5. For crypto prices, use `get_crypto_price`.\n6. For exact math, use `calculator`.\n7. For Wikipedia, use `search_wikipedia`.\n8. For current date/time, use `get_current_time`." }];
+    activeModel = name; history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }];
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
-    $("send").disabled = false; $("attachBtn").disabled = false; $("micBtn").disabled = false; $("input").focus();
+    $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
     setStatus("running: " + name, "on");
   } catch (e) {
     log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
@@ -399,109 +387,32 @@ async function psCheck() {
 async function send(isToolRetry = false) {
   if (!isToolRetry) {
     const text = $("input").value.trim();
-    if ((!text && currentImages.length === 0) || busy || !activeModel) return;
-    busy = true; $("send").disabled = true; $("attachBtn").disabled = true; $("micBtn").disabled = true;
+    if (!text || busy || !activeModel) return;
+    busy = true; $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
     $("input").value = ""; $("input").style.height = "auto";
-    const uiText = text + (currentImages.length ? `\n\n*[Attached ${currentImages.length} image(s)]*` : "");
-    addMsg("user", uiText);
-    const msgObj = { role: "user", content: text };
-    if (currentImages.length > 0) {
-      msgObj.images = [...currentImages];
-      currentImages = [];
-      $("attachments").innerHTML = "";
-      $("attachments").style.display = "none";
-    }
-    history.push(msgObj);
+    addMsg("user", text);
+    history.push({ role: "user", content: text });
     log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
     log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
   } else {
     log("REQ", "POST /api/chat (Tool Retry)  model=" + activeModel + "  msgs=" + history.length);
   }
 
-  const bubble = addMsg("bot", isToolRetry ? "*(分析系統資訊中...)*\n" : ""); 
-  bubble.classList.add("cursor");
+  const bubble = addMsg("bot", isToolRetry ? "*(查詢中...)*\n" : ""); bubble.classList.add("cursor");
   let reply = "", chunks = 0, ttft = null, toolCalls = null;
   const t0 = performance.now();
   
-  // 定義提供給 LLM 的工具
   const tools = [
-    {
-      type: "function",
-      function: {
-        name: "search_web",
-        description: "Search the web for information. This ONLY returns short snippets and URLs. To get the full context (e.g. for news articles or detailed facts), you MUST subsequently call the 'read_url' tool with one of the returned URLs.",
-        parameters: { type: "object", properties: { query: { type: "string", description: "The search query" } }, required: ["query"] }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "read_url",
-        description: "Read the content of a specific URL and extract the text. Use this after a search to read the full article.",
-        parameters: { type: "object", properties: { url: { type: "string", description: "The URL of the webpage to read" } }, required: ["url"] }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_news",
-        description: "Get the latest news headlines using Google News. You can provide an optional search query. It returns headlines and URLs. To read the full news article, use the read_url tool on one of the returned URLs.",
-        parameters: { type: "object", properties: { query: { type: "string", description: "Optional search query (e.g., 'technology', 'apple')" } } }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_system_info",
-        description: "Get the local computer's static system specifications like OS, RAM, and computer name."
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_hardware_status",
-        description: "Get real-time hardware status including CPU/GPU temperatures, loads, and memory usage via Libre Hardware Monitor API. Also includes a 5-minute historical trend for CPU/GPU/RAM."
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_current_time",
-        description: "Get the current local time, date, and timezone of the user."
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "calculator",
-        description: "Evaluate a mathematical expression. Use this to perform accurate calculations.",
-        parameters: { type: "object", properties: { expression: { type: "string", description: "The math expression to evaluate (e.g., '2 + 2 * 4' or '100 / 3.5')" } }, required: ["expression"] }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_crypto_price",
-        description: "Get the current price and 24h change for a cryptocurrency via CoinGecko API.",
-        parameters: { type: "object", properties: { coin_id: { type: "string", description: "The CoinGecko coin ID (e.g., 'bitcoin', 'ethereum', 'dogecoin')" } }, required: ["coin_id"] }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "search_wikipedia",
-        description: "Search Wikipedia for a topic and get the article summary.",
-        parameters: { type: "object", properties: { query: { type: "string", description: "The search topic" }, lang: { type: "string", description: "Language code (e.g., 'en', 'zh')", default: "zh" } }, required: ["query"] }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_weather",
-        description: "Get the current weather and forecast for a specific city.",
-        parameters: { type: "object", properties: { city: { type: "string", description: "The name of the city (e.g., 'Taipei', 'New York')" } }, required: ["city"] }
-      }
-    }
+    { type: "function", function: { name: "search_web", description: "Search the web for info.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
+    { type: "function", function: { name: "read_url", description: "Read specific URL.", parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } } },
+    { type: "function", function: { name: "get_news", description: "Get news.", parameters: { type: "object", properties: { query: { type: "string" } } } } },
+    { type: "function", function: { name: "get_system_info", description: "Get system specs." } },
+    { type: "function", function: { name: "get_hardware_status", description: "Get real-time hardware status." } },
+    { type: "function", function: { name: "get_current_time", description: "Get current date/time." } },
+    { type: "function", function: { name: "calculator", description: "Eval math.", parameters: { type: "object", properties: { expression: { type: "string" } }, required: ["expression"] } } },
+    { type: "function", function: { name: "get_crypto_price", description: "Get crypto price.", parameters: { type: "object", properties: { coin_id: { type: "string" } }, required: ["coin_id"] } } },
+    { type: "function", function: { name: "search_wikipedia", description: "Search Wiki.", parameters: { type: "object", properties: { query: { type: "string" }, lang: { type: "string", default: "zh" } }, required: ["query"] } } },
+    { type: "function", function: { name: "get_weather", description: "Get weather.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } } }
   ];
 
   try {
@@ -549,8 +460,6 @@ async function send(isToolRetry = false) {
         }
       }
     }
-    
-    // 處理 Tool Calls
     if (!toolCalls && reply && reply.includes("{") && reply.includes("}")) {
       const match = reply.match(/\{[\s\S]*"name"\s*:\s*"[^"]+"[\s\S]*\}/);
       if (match) {
@@ -571,153 +480,76 @@ async function send(isToolRetry = false) {
       
       for (const tc of toolCalls) {
         if (tc.function.name === "get_system_info") {
-          const sysInfo = typeof window.sysinfo_data !== "undefined" 
-            ? window.sysinfo_data 
-            : "Error: sysinfo.js not found. Please run start.bat to generate system info.";
+          const sysInfo = typeof window.sysinfo_data !== "undefined" ? window.sysinfo_data : "Error: sysinfo.js not found.";
           history.push({ role: "tool", content: sysInfo });
-          log("INFO", "Tool get_system_info executed.");
         } else if (tc.function.name === "search_web") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            const q = args.query || args.q;
-            log("INFO", "Searching web for: " + q);
-            const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(q));
-            if (!res.ok) throw new Error("HTTP " + res.status);
+            const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query || args.q));
             let data = await res.text();
-            // Decode duckduckgo redirect URLs so the LLM gets clean URLs
             data = data.replace(/https:\/\/duckduckgo\.com\/l\/\?uddg=([^&]+)(?:&[^)\s\]'"]*)?/g, (m, p1) => decodeURIComponent(p1));
             history.push({ role: "tool", content: data.substring(0, 4000) });
-            log("OK", "Tool search_web executed.");
-          } catch (err) {
-            log("ERROR", "Search failed: " + err.message);
-            history.push({ role: "tool", content: "Error: " + err.message });
-          }
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "read_url") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
-            log("INFO", "Reading URL: " + args.url);
             const res = await fetch("https://r.jina.ai/" + args.url);
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            const data = await res.text();
-            history.push({ role: "tool", content: data.substring(0, 8000) });
-            log("OK", "Tool read_url executed.");
-          } catch (err) {
-            log("ERROR", "Read URL failed: " + err.message);
-            history.push({ role: "tool", content: "Error: " + err.message });
-          }
+            history.push({ role: "tool", content: (await res.text()).substring(0, 8000) });
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_news") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
             const q = args.query || args.q || "";
-            log("INFO", "Fetching news for: " + (q || "top stories"));
             const url = q ? "https://news.google.com/rss/search?q=" + encodeURIComponent(q) : "https://news.google.com/rss";
             const res = await fetch("https://r.jina.ai/" + url);
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            const data = await res.text();
-            history.push({ role: "tool", content: data.substring(0, 4000) });
-            log("OK", "Tool get_news executed.");
-          } catch (err) {
-            log("ERROR", "Get news failed: " + err.message);
-            history.push({ role: "tool", content: "Error: " + err.message });
-          }
+            history.push({ role: "tool", content: (await res.text()).substring(0, 4000) });
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_hardware_status") {
           try {
-            log("INFO", "Fetching LHM API (localhost:8085)...");
             const hwRes = await fetch("http://localhost:8085/data.json");
-            if (!hwRes.ok) throw new Error("HTTP " + hwRes.status);
-            const hwData = await hwRes.json();
-            
-            // 解析並展平 LHM 的巢狀 JSON 結構以節省 Token
             let summary = "";
-            function parseLHM(node, indent = "") {
-                if (node.Text && node.Value) {
-                    summary += indent + node.Text + ": " + node.Value + "\n";
-                } else if (node.Text && node.Children && node.Children.length) {
-                    summary += indent + node.Text + "\n";
-                    node.Children.forEach(c => parseLHM(c, indent + "  "));
-                }
+            function parseLHM(n, ind = "") {
+                if (n.Text && n.Value) summary += ind + n.Text + ": " + n.Value + "\n";
+                else if (n.Text && n.Children) { summary += ind + n.Text + "\n"; n.Children.forEach(c => parseLHM(c, ind + "  ")); }
             }
-            parseLHM(hwData);
-            
-            if (hwTrend.length > 0) {
-              summary += "\n--- 5-Minute Historical Trend ---\n";
-              const step = Math.max(1, Math.floor(hwTrend.length / 15));
-              for (let i = 0; i < hwTrend.length; i += step) {
-                const pt = hwTrend[i];
-                summary += `[${new Date(pt.t).toLocaleTimeString()}] CPU: ${pt.cpu}% (${pt.cpuT}°C), GPU: ${pt.gpu}% (${pt.gpuT}°C), VRAM: ${pt.vram}%, RAM: ${pt.ram}%\n`;
-              }
-            }
-            
-            const finalData = summary ? summary.substring(0, 4000) : "No hardware data found.";
-            history.push({ role: "tool", content: finalData });
-            log("OK", "Tool get_hardware_status executed (fetched data.json).");
-          } catch (err) {
-            log("ERROR", "LHM API fetch failed: " + err.message);
-            history.push({ role: "tool", content: "Error fetching hardware status from http://localhost:8085/data.json. " + err.message + ". Make sure Libre Hardware Monitor web server is running." });
-          }
+            parseLHM(await hwRes.json());
+            history.push({ role: "tool", content: summary ? summary.substring(0, 4000) : "No data" });
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_current_time") {
           const d = new Date();
-          const info = `Current Date/Time: ${d.toLocaleString()}\nTimezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}\nISO: ${d.toISOString()}`;
-          history.push({ role: "tool", content: info });
-          log("OK", "Tool get_current_time executed.");
+          history.push({ role: "tool", content: `Date: ${d.toLocaleString()}\nTZ: ${Intl.DateTimeFormat().resolvedOptions().timeZone}` });
         } else if (tc.function.name === "calculator") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            const result = new Function('return ' + args.expression)();
-            history.push({ role: "tool", content: `Result of ${args.expression} = ${result}` });
-            log("OK", `Tool calculator executed: ${args.expression} = ${result}`);
-          } catch (err) {
-            log("ERROR", "Calculator failed: " + err.message);
-            history.push({ role: "tool", content: "Error evaluating expression: " + err.message });
-          }
+            history.push({ role: "tool", content: `Result = ${new Function('return ' + args.expression)()}` });
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_crypto_price") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            log("INFO", "Fetching crypto price for: " + args.coin_id);
             const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${args.coin_id}&vs_currencies=usd,twd&include_24hr_change=true`);
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            const data = await res.json();
-            history.push({ role: "tool", content: JSON.stringify(data) });
-            log("OK", "Tool get_crypto_price executed for " + args.coin_id);
-          } catch (err) {
-            log("ERROR", "Crypto price failed: " + err.message);
-            history.push({ role: "tool", content: "Error: " + err.message });
-          }
+            history.push({ role: "tool", content: JSON.stringify(await res.json()) });
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "search_wikipedia") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            const lang = args.lang || "zh";
-            log("INFO", `Searching Wikipedia (${lang}) for: ${args.query}`);
-            const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(args.query)}`);
-            if (!res.ok) throw new Error("HTTP " + res.status);
+            const res = await fetch(`https://${args.lang || "zh"}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(args.query)}`);
             const data = await res.json();
             history.push({ role: "tool", content: `Title: ${data.title}\nSummary: ${data.extract}` });
-            log("OK", "Tool search_wikipedia executed.");
-          } catch (err) {
-            log("ERROR", "Wikipedia search failed: " + err.message);
-            history.push({ role: "tool", content: "Error: " + err.message });
-          }
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_weather") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            log("INFO", "Fetching weather for: " + args.city);
             const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(args.city)}&count=1&language=zh`);
             const geoData = await geoRes.json();
             if (!geoData.results || !geoData.results.length) throw new Error("City not found");
             const { latitude, longitude, name, country } = geoData.results[0];
-            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`);
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
             const weatherData = await weatherRes.json();
-            const info = `Location: ${name}, ${country}\nCurrent: ${weatherData.current.temperature_2m}°C, Humidity ${weatherData.current.relative_humidity_2m}%\nToday's Max/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C`;
-            history.push({ role: "tool", content: info });
-            log("OK", "Tool get_weather executed.");
-          } catch (err) {
-            log("ERROR", "Weather failed: " + err.message);
-            history.push({ role: "tool", content: "Error: " + err.message });
-          }
+            history.push({ role: "tool", content: `Loc: ${name}, ${country}\nCur: ${weatherData.current.temperature_2m}°C, Hum ${weatherData.current.relative_humidity_2m}%\nMax/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C` });
+          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         }
       }
       
-      // 遞迴呼叫 send() 將工具結果送回給 LLM 總結
       bubble.classList.remove("cursor");
       await send(true);
       return; 
@@ -732,7 +564,7 @@ async function send(isToolRetry = false) {
   } finally {
     if (!toolCalls || toolCalls.length === 0) {
       bubble.classList.remove("cursor");
-      busy = false; $("send").disabled = false; $("attachBtn").disabled = false; $("micBtn").disabled = false; $("input").focus();
+      busy = false; $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
     }
   }
 }
@@ -767,17 +599,35 @@ if (SpeechRecognition) {
     else recognition.start();
   };
   
+  let isVoiceSending = false;
+
   recognition.onstart = () => {
     isRecording = true;
+    isVoiceSending = false;
     $("micBtn").classList.add("recording");
     originalText = $("input").value + ($("input").value && !$("input").value.endsWith(" ") ? " " : "");
   };
   
   recognition.onresult = (e) => {
+    if (isVoiceSending) return;
+
     let transcript = "";
     for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+    
+    let isSend = false;
+    if (/(傳送|send)[。.,!?\s]*$/i.test(transcript)) {
+      transcript = transcript.replace(/(傳送|send)[。.,!?\s]*$/i, "");
+      isSend = true;
+      isVoiceSending = true;
+    }
+    
     $("input").value = originalText + transcript;
     $("input").dispatchEvent(new Event("input"));
+    
+    if (isSend) {
+      recognition.stop();
+      setTimeout(send, 100);
+    }
   };
   
   recognition.onend = () => {
@@ -792,23 +642,6 @@ if (SpeechRecognition) {
   };
 }
 
-$("attachBtn").onclick = () => $("imgUpload").click();
-$("imgUpload").onchange = e => {
-  for (const file of e.target.files) {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const b64 = ev.target.result;
-      currentImages.push(b64.split(",")[1]);
-      const img = document.createElement("img");
-      img.src = b64;
-      img.style.cssText = "width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid #30363d;";
-      $("attachments").style.display = "flex";
-      $("attachments").appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  }
-  $("imgUpload").value = "";
-};
 $("run").onclick = runModel;
 $("del").onclick = delModel;
 $("pullBtn").onclick = pullModel;
@@ -816,15 +649,15 @@ $("pullCancel").onclick = () => { if (pullAbort) pullAbort.abort(); };
 $("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullModel(); });
 $("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
 $("send").onclick = send;
-$("clear").onclick = () => { 
-  history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`.\n4. For weather, use `get_weather`.\n5. For crypto prices, use `get_crypto_price`.\n6. For exact math, use `calculator`.\n7. For Wikipedia, use `search_wikipedia`.\n8. For current date/time, use `get_current_time`." }];
-  $("chat").innerHTML = '<div class="empty">History cleared.</div>'; 
-  log("INFO", "Chat history cleared"); 
-};
+$("clear").onclick = () => { history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }]; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
 $("clearLog").onclick = () => $("logs").innerHTML = "";
 $("copyLog").onclick = () => {
   navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
   log("OK", "Logs copied to clipboard");
+};
+$("toggleLog").onclick = e => {
+  $("logPane").classList.toggle("hidden");
+  e.target.textContent = $("logPane").classList.contains("hidden") ? "Show Logs" : "Hide Logs";
 };
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("input").addEventListener("input", e => {
@@ -866,59 +699,6 @@ $("input").addEventListener("input", e => {
   if (location.protocol === "file:")
     log("WARN", "Opened via file:// - origin is null. Use the .bat launcher instead.");
 })();
-
-async function updateHardwareStatus() {
-  try {
-    const res = await fetch("http://localhost:8085/data.json");
-    if (!res.ok) return;
-    const data = await res.json();
-    let cpu = "--", gpu = "--", ram = "--", vram = "--";
-    let cpuTemp = "--", gpuTemp = "--";
-    let memFound = false, gpuFound = false, gpuTempFound = false, vramFound = false;
-    function findValues(node) {
-      if (node.Text && node.Value) {
-        if (node.Text === "CPU Total" && node.Value.includes("%")) cpu = node.Value.replace(/\s/g, "");
-        if (!memFound && node.Text === "Memory" && node.Value.includes("%")) { ram = node.Value.replace(/\s/g, ""); memFound = true; }
-        if (!gpuFound && node.Text === "GPU Core" && node.Value.includes("%")) { gpu = node.Value.replace(/\s/g, ""); gpuFound = true; }
-        if (!vramFound && (node.Text === "GPU Memory" || node.Text.includes("VRAM")) && node.Value.includes("%")) { vram = node.Value.replace(/\s/g, ""); vramFound = true; }
-        if (node.Text === "CPU Package" && node.Value.includes("°C")) cpuTemp = node.Value.replace(/\s/g, "");
-        if (!gpuTempFound && node.Text === "GPU Core" && node.Value.includes("°C")) { gpuTemp = node.Value.replace(/\s/g, ""); gpuTempFound = true; }
-      }
-      if (node.Children) node.Children.forEach(findValues);
-    }
-    findValues(data);
-    const setVal = (id, val) => {
-      const el = $(id);
-      el.textContent = val;
-      const num = parseFloat(val);
-      if (isNaN(num)) el.style.color = "#111";
-      else if (num >= 90) el.style.color = "#d73a49"; // red (darker for light bg)
-      else if (num >= 80) el.style.color = "#b08800"; // yellow/orange
-      else el.style.color = "#111";
-    };
-    setVal("hwCpu", cpu + (cpuTemp !== "--" ? ` (${cpuTemp})` : ""));
-    setVal("hwGpu", gpu + (gpuTemp !== "--" ? ` (${gpuTemp})` : ""));
-    setVal("hwVRam", vram);
-    setVal("hwRam", ram);
-    
-    const c = parseFloat(cpu), g = parseFloat(gpu), r = parseFloat(ram), vr = parseFloat(vram);
-    const ct = parseFloat(cpuTemp), gt = parseFloat(gpuTemp);
-    if (!isNaN(c)) {
-      hwTrend.push({ t: Date.now(), cpu: c, gpu: g, ram: r, vram: isNaN(vr) ? 0 : vr, cpuT: isNaN(ct) ? 0 : ct, gpuT: isNaN(gt) ? 0 : gt });
-      if (hwTrend.length > 150) hwTrend.shift(); // 150 * 2s = 300s (5 minutes)
-      
-      let sumCpu = 0, sumVram = 0, countCpu = 0, countVram = 0;
-      for (const pt of hwTrend) {
-        if (!isNaN(pt.cpu)) { sumCpu += pt.cpu; countCpu++; }
-        if (!isNaN(pt.vram)) { sumVram += pt.vram; countVram++; }
-      }
-      if (countCpu > 0) $("avgCpu").textContent = (sumCpu / countCpu).toFixed(1) + "%";
-      if (countVram > 0) $("avgVRam").textContent = (sumVram / countVram).toFixed(1) + "%";
-    }
-  } catch (e) {}
-}
-setInterval(updateHardwareStatus, 2000);
-updateHardwareStatus();
 
 log("INFO", "Ollama Web Chat starting...");
 log("INFO", "Host: " + HOST);
