@@ -90,6 +90,7 @@
   #fixCmd { background:#0d1117; border:1px solid #30363d; padding:12px; border-radius:8px;
     font-size:12.5px; overflow-x:auto; font-family:ui-monospace,Consolas,monospace; }
 </style>
+<script src="sysinfo.js"></script>
 </head>
 <body>
 
@@ -382,23 +383,40 @@ async function psCheck() {
   } catch (e) { log("WARN", "ps failed: " + e.message); }
 }
 
-async function send() {
-  const text = $("input").value.trim();
-  if (!text || busy || !activeModel) return;
-  busy = true; $("send").disabled = true;
-  $("input").value = ""; $("input").style.height = "auto";
-  addMsg("user", text);
-  history.push({ role: "user", content: text });
-  log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
-  log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
+async function send(isToolRetry = false) {
+  if (!isToolRetry) {
+    const text = $("input").value.trim();
+    if (!text || busy || !activeModel) return;
+    busy = true; $("send").disabled = true;
+    $("input").value = ""; $("input").style.height = "auto";
+    addMsg("user", text);
+    history.push({ role: "user", content: text });
+    log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
+    log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
+  } else {
+    log("REQ", "POST /api/chat (Tool Retry)  model=" + activeModel + "  msgs=" + history.length);
+  }
 
-  const bubble = addMsg("bot", ""); bubble.classList.add("cursor");
-  let reply = "", chunks = 0, ttft = null;
+  const bubble = addMsg("bot", isToolRetry ? "*(分析系統資訊中...)*\n" : ""); 
+  bubble.classList.add("cursor");
+  let reply = "", chunks = 0, ttft = null, toolCalls = null;
   const t0 = performance.now();
+  
+  // 定義提供給 LLM 的工具
+  const tools = [
+    {
+      type: "function",
+      function: {
+        name: "get_system_info",
+        description: "Get the local computer's system specifications like OS, RAM, and computer name."
+      }
+    }
+  ];
+
   try {
     const res = await fetch(HOST + "/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: activeModel, messages: history, stream: true })
+      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools })
     });
     if (!res.ok) throw new Error(res.status + " " + await res.text());
     log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
@@ -412,12 +430,18 @@ async function send() {
       for (const line of lines) {
         if (!line.trim()) continue;
         const o = JSON.parse(line);
-        if (o.message && o.message.content) {
-          if (ttft === null) { ttft = performance.now() - t0; log("OK", "First token in " + ttft.toFixed(0) + "ms (TTFT)"); }
-          chunks++; reply += o.message.content;
-          bubble.innerHTML = md(reply);
-          $("chat").scrollTop = $("chat").scrollHeight;
-          log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
+        if (o.message) {
+          if (o.message.tool_calls) {
+            toolCalls = o.message.tool_calls;
+          }
+          if (o.message.content) {
+            if (ttft === null) { ttft = performance.now() - t0; log("OK", "First token in " + ttft.toFixed(0) + "ms (TTFT)"); }
+            if (isToolRetry && chunks === 0) reply = ""; // 清除提示文字
+            chunks++; reply += o.message.content;
+            bubble.innerHTML = md(reply);
+            $("chat").scrollTop = $("chat").scrollHeight;
+            log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
+          }
         }
         if (o.done) {
           const wall = performance.now() - t0;
@@ -434,15 +458,39 @@ async function send() {
         }
       }
     }
-    history.push({ role: "assistant", content: reply });
-    log("OK", "Reply complete (" + reply.length + " chars)");
+    
+    // 處理 Tool Calls
+    if (toolCalls && toolCalls.length > 0) {
+      history.push({ role: "assistant", content: reply, tool_calls: toolCalls });
+      log("INFO", "LLM called tools: " + toolCalls.map(t => t.function.name).join(", "));
+      
+      for (const tc of toolCalls) {
+        if (tc.function.name === "get_system_info") {
+          const sysInfo = typeof window.sysinfo_data !== "undefined" 
+            ? window.sysinfo_data 
+            : "Error: sysinfo.js not found. Please run start.bat to generate system info.";
+          history.push({ role: "tool", content: sysInfo });
+          log("INFO", "Tool get_system_info executed.");
+        }
+      }
+      
+      // 遞迴呼叫 send() 將工具結果送回給 LLM 總結
+      bubble.classList.remove("cursor");
+      await send(true);
+      return; 
+    } else {
+      history.push({ role: "assistant", content: reply });
+      log("OK", "Reply complete (" + reply.length + " chars)");
+    }
   } catch (e) {
     bubble.textContent = "Error: " + e.message;
     bubble.style.color = "#ff7b72";
     log("ERROR", "Chat failed: " + e.message);
   } finally {
-    bubble.classList.remove("cursor");
-    busy = false; $("send").disabled = false; $("input").focus();
+    if (!toolCalls || toolCalls.length === 0) {
+      bubble.classList.remove("cursor");
+      busy = false; $("send").disabled = false; $("input").focus();
+    }
   }
 }
 
