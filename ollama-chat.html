@@ -623,9 +623,18 @@ async function updateHardwareStatus() {
       if (node.Children) node.Children.forEach(findValues);
     }
     findValues(data);
-    $("hwCpu").textContent = cpu;
-    $("hwGpu").textContent = gpu;
-    $("hwRam").textContent = ram;
+    const setVal = (id, val) => {
+      const el = $(id);
+      el.textContent = val;
+      const num = parseFloat(val);
+      if (isNaN(num)) el.style.color = "#c9d1d9";
+      else if (num >= 90) el.style.color = "#ff7b72"; // red
+      else if (num >= 80) el.style.color = "#d29922"; // yellow
+      else el.style.color = "#c9d1d9";
+    };
+    setVal("hwCpu", cpu);
+    setVal("hwGpu", gpu);
+    setVal("hwRam", ram);
   } catch (e) {}
 }
 setInterval(updateHardwareStatus, 2000);
