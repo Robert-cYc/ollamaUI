@@ -334,12 +334,39 @@ async function delModel() {
     });
     if (!res.ok) throw new Error(res.status + " " + await res.text());
     log("OK", "Deleted " + name);
-    if (activeModel === name) { activeModel = null; $("input").disabled = true; $("send").disabled = true; }
+    if (activeModel === name) { 
+      activeModel = null; 
+      $("input").disabled = true; $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+      $("run").textContent = "Run Model"; $("run").className = "primary";
+    }
     loadModels(true);
   } catch (e) { log("ERROR", "Delete failed: " + e.message); }
 }
 
 async function runModel() {
+  if (activeModel) {
+    const name = activeModel;
+    $("run").disabled = true;
+    log("INFO", "=== Unloading model: " + name + " ===");
+    try {
+      await fetch(HOST + "/api/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: name, prompt: "", keep_alive: 0 })
+      });
+      log("OK", 'Model "' + name + '" unloaded');
+      activeModel = null;
+      $("run").textContent = "Run Model"; $("run").className = "primary";
+      $("input").disabled = true; $("input").placeholder = "Run a model first...";
+      $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+      setStatus("stopped", "off");
+    } catch (e) {
+      log("ERROR", "Unload failed: " + e.message);
+    } finally {
+      $("run").disabled = false;
+    }
+    return;
+  }
+
   const name = $("models").value;
   if (!name || /^(No |Conn|Load)/.test(name)) return log("WARN", "No valid model selected");
   $("run").disabled = true;
@@ -364,6 +391,8 @@ async function runModel() {
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
     $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
     setStatus("running: " + name, "on");
+    
+    $("run").textContent = "Stop"; $("run").className = "danger";
   } catch (e) {
     log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
   } finally { $("run").disabled = false; }
