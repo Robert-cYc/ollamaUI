@@ -561,7 +561,7 @@ async function send(isToolRetry = false) {
               const step = Math.max(1, Math.floor(hwTrend.length / 15));
               for (let i = 0; i < hwTrend.length; i += step) {
                 const pt = hwTrend[i];
-                summary += `[${new Date(pt.t).toLocaleTimeString()}] CPU: ${pt.cpu}%, GPU: ${pt.gpu}%, RAM: ${pt.ram}%\n`;
+                summary += `[${new Date(pt.t).toLocaleTimeString()}] CPU: ${pt.cpu}% (${pt.cpuT}°C), GPU: ${pt.gpu}% (${pt.gpuT}°C), RAM: ${pt.ram}%\n`;
               }
             }
             
@@ -693,12 +693,15 @@ async function updateHardwareStatus() {
     if (!res.ok) return;
     const data = await res.json();
     let cpu = "--", gpu = "--", ram = "--";
-    let memFound = false, gpuFound = false;
+    let cpuTemp = "--", gpuTemp = "--";
+    let memFound = false, gpuFound = false, gpuTempFound = false;
     function findValues(node) {
       if (node.Text && node.Value) {
         if (node.Text === "CPU Total" && node.Value.includes("%")) cpu = node.Value.replace(/\s/g, "");
         if (!memFound && node.Text === "Memory" && node.Value.includes("%")) { ram = node.Value.replace(/\s/g, ""); memFound = true; }
         if (!gpuFound && node.Text === "GPU Core" && node.Value.includes("%")) { gpu = node.Value.replace(/\s/g, ""); gpuFound = true; }
+        if (node.Text === "CPU Package" && node.Value.includes("°C")) cpuTemp = node.Value.replace(/\s/g, "");
+        if (!gpuTempFound && node.Text === "GPU Core" && node.Value.includes("°C")) { gpuTemp = node.Value.replace(/\s/g, ""); gpuTempFound = true; }
       }
       if (node.Children) node.Children.forEach(findValues);
     }
@@ -712,13 +715,14 @@ async function updateHardwareStatus() {
       else if (num >= 80) el.style.color = "#d29922"; // yellow
       else el.style.color = "#c9d1d9";
     };
-    setVal("hwCpu", cpu);
-    setVal("hwGpu", gpu);
+    setVal("hwCpu", cpu + (cpuTemp !== "--" ? ` (${cpuTemp})` : ""));
+    setVal("hwGpu", gpu + (gpuTemp !== "--" ? ` (${gpuTemp})` : ""));
     setVal("hwRam", ram);
     
     const c = parseFloat(cpu), g = parseFloat(gpu), r = parseFloat(ram);
+    const ct = parseFloat(cpuTemp), gt = parseFloat(gpuTemp);
     if (!isNaN(c)) {
-      hwTrend.push({ t: Date.now(), cpu: c, gpu: g, ram: r });
+      hwTrend.push({ t: Date.now(), cpu: c, gpu: g, ram: r, cpuT: isNaN(ct) ? 0 : ct, gpuT: isNaN(gt) ? 0 : gt });
       if (hwTrend.length > 150) hwTrend.shift(); // 150 * 2s = 300s (5 minutes)
     }
   } catch (e) {}
