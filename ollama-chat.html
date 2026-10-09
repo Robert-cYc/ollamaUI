@@ -471,7 +471,14 @@ async function send(isToolRetry = false) {
     { type: "function", function: { name: "calculator", description: "Eval math.", parameters: { type: "object", properties: { expression: { type: "string" } }, required: ["expression"] } } },
     { type: "function", function: { name: "get_crypto_price", description: "Get crypto price.", parameters: { type: "object", properties: { coin_id: { type: "string" } }, required: ["coin_id"] } } },
     { type: "function", function: { name: "search_wikipedia", description: "Search Wiki.", parameters: { type: "object", properties: { query: { type: "string" }, lang: { type: "string", default: "zh" } }, required: ["query"] } } },
-    { type: "function", function: { name: "get_weather", description: "Get weather.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } } }
+    { type: "function", function: { name: "get_weather", description: "Get weather.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } } },
+    { type: "function", function: { name: "generate_image", description: "Generate an image using Pollinations.ai. Returns a markdown image link.", parameters: { type: "object", properties: { prompt: { type: "string", description: "English prompt for image generation" } }, required: ["prompt"] } } },
+    { type: "function", function: { name: "get_ip_location", description: "Get the current public IP and location information." } },
+    { type: "function", function: { name: "get_hacker_news", description: "Get top tech news from Hacker News." } },
+    { type: "function", function: { name: "translate_text", description: "Translate text using Lingva API.", parameters: { type: "object", properties: { text: { type: "string" }, target_lang: { type: "string", description: "Language code (e.g., 'en', 'zh', 'ja')" } }, required: ["text", "target_lang"] } } },
+    { type: "function", function: { name: "open_application", description: "Open a local application or file.", parameters: { type: "object", properties: { path: { type: "string", description: "Name or path of the application/file" } }, required: ["path"] } } },
+    { type: "function", function: { name: "read_local_file", description: "Read contents of a local file.", parameters: { type: "object", properties: { path: { type: "string", description: "Absolute path to the file" } }, required: ["path"] } } },
+    { type: "function", function: { name: "run_command", description: "Execute a PowerShell command locally.", parameters: { type: "object", properties: { command: { type: "string", description: "The PowerShell command to run" } }, required: ["command"] } } }
   ];
 
   try {
@@ -615,6 +622,45 @@ async function send(isToolRetry = false) {
             const weatherData = await weatherRes.json();
             history.push({ role: "tool", name: tc.function.name, content: `Loc: ${name}, ${country}\nCur: ${weatherData.current.temperature_2m}°C, Hum ${weatherData.current.relative_humidity_2m}%\nMax/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C` });
           } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "generate_image") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            history.push({ role: "tool", name: tc.function.name, content: `![Generated Image](https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?width=1024&height=1024&nologo=true)` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_ip_location") {
+          try {
+            const res = await fetch("http://ip-api.com/json/");
+            history.push({ role: "tool", name: tc.function.name, content: JSON.stringify(await res.json()) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_hacker_news") {
+          try {
+            const res = await fetch("https://hacker-news.firebaseio.com/v0/topstories.json");
+            const ids = (await res.json()).slice(0, 5);
+            let news = "";
+            for (const id of ids) {
+              const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+              const item = await itemRes.json();
+              news += `- [${item.title}](${item.url}) (Score: ${item.score})\n`;
+            }
+            history.push({ role: "tool", name: tc.function.name, content: news });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "translate_text") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const res = await fetch(`https://lingva.ml/api/v1/auto/${args.target_lang}/${encodeURIComponent(args.text)}`);
+            history.push({ role: "tool", name: tc.function.name, content: (await res.json()).translation || "Translation failed." });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (["open_application", "read_local_file", "run_command"].includes(tc.function.name)) {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const actionMap = { open_application: "open", read_local_file: "read", run_command: "command" };
+            const payload = { action: actionMap[tc.function.name] };
+            if (tc.function.name === "run_command") payload.command = args.command;
+            else payload.path = args.path;
+            const res = await fetch("/api/run", { method: "POST", body: JSON.stringify(payload) });
+            const result = await res.text();
+            history.push({ role: "tool", name: tc.function.name, content: result.substring(0, 8000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error (is _webserver.ps1 running?): " + err.message }); }
         }
       }
       
