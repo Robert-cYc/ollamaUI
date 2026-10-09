@@ -540,14 +540,17 @@ async function send(isToolRetry = false) {
           } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_hardware_status") {
           try {
-            const hwRes = await fetch("http://localhost:8085/data.json");
-            let summary = "";
-            function parseLHM(n, ind = "") {
-                if (n.Text && n.Value) summary += ind + n.Text + ": " + n.Value + "\n";
-                else if (n.Text && n.Children) { summary += ind + n.Text + "\n"; n.Children.forEach(c => parseLHM(c, ind + "  ")); }
+            let content = "Current Hardware Status (CPU/GPU/RAM usage %):\n";
+            if (typeof hwTrend !== "undefined" && hwTrend.length > 0) {
+              const last = hwTrend[hwTrend.length - 1];
+              content += `Time: ${last.time}, CPU: ${last.cpu}%, GPU: ${last.gpu}%, RAM: ${last.ram}%\n`;
+              content += "Trend (last 5 records):\n";
+              const recent = hwTrend.slice(-5);
+              recent.forEach(r => content += `[${r.time}] CPU: ${r.cpu}%, GPU: ${r.gpu}%, RAM: ${r.ram}%\n`);
+            } else {
+              content = "Hardware monitor data is currently unavailable.";
             }
-            parseLHM(await hwRes.json());
-            history.push({ role: "tool", content: summary ? summary.substring(0, 4000) : "No data" });
+            history.push({ role: "tool", content: content });
           } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_current_time") {
           const d = new Date();
