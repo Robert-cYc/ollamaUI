@@ -4,7 +4,7 @@ title Ollama Chat - All-in-One Launcher
 cd /d "%~dp0"
 
 set "PORT=8080"
-set "PAGE=ollama-chat.html"
+set "PAGE=ollama-chat-v2.html"
 set "OLLAMA_ORIGINS=*"
 set "OLLAMA_HOST=127.0.0.1:11434"
 
@@ -18,19 +18,12 @@ echo      OLLAMA CHAT  -  all-in-one launcher
 echo   ============================================
 echo.
 
-echo [1/6] Extracting web app...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$s=Get-Content -LiteralPath '%~f0' -Encoding UTF8;" ^
-  "$i=[array]::IndexOf($s,'@@@HTML_PAYLOAD@@@');" ^
-  "$j=[array]::IndexOf($s,'@@@PS1_PAYLOAD@@@');" ^
-  "$enc=New-Object System.Text.UTF8Encoding $false;" ^
-  "[IO.File]::WriteAllLines((Join-Path '%~dp0' 'ollama-chat.html'),$s[($i+1)..($j-1)],$enc);" ^
-  "[IO.File]::WriteAllLines((Join-Path '%~dp0' '_webserver.ps1'),$s[($j+1)..($s.Count-1)],$enc);"
-if not exist "%~dp0ollama-chat.html" (
-  echo      ERROR: extraction failed. Save this .bat as UTF-8 without BOM.
+echo [1/6] Using existing v2 files...
+if not exist "%~dp0ollama-chat-v2.html" (
+  echo      ERROR: v2 files not found.
   pause & exit /b 1
 )
-echo      ollama-chat.html  +  _webserver.ps1   OK
+echo      ollama-chat-v2.html  +  _webserver-v2.ps1   OK
 
 echo [2/6] Stopping any Ollama started without CORS...
 taskkill /F /IM "ollama app.exe" >nul 2>&1
@@ -50,12 +43,8 @@ if errorlevel 1 (
 echo      API is live.
 
 echo [5/6] Serving page on http://localhost:%PORT%
-where python >nul 2>&1
-if %errorlevel%==0 (
-  start "Ollama Page Server" /min cmd /c "python -m http.server %PORT% --bind 127.0.0.1"
-) else (
-  start "Ollama Page Server" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_webserver.ps1" -Port %PORT% -Root "%~dp0"
-)
+powershell -NoProfile -Command "Get-WmiObject Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -match '_webserver' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+start "Ollama Page Server" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_webserver-v2.ps1" -Port %PORT%
 timeout /t 2 /nobreak >nul
 
 echo [6/6] Opening browser...

@@ -13,7 +13,23 @@ while ($listener.IsListening) {
   try {
     $ctx = $listener.GetContext()
     $rel = [Uri]::UnescapeDataString($ctx.Request.Url.LocalPath.TrimStart('/'))
-    if ([string]::IsNullOrWhiteSpace($rel)) { $rel = "ollama-chat.html" }
+    if ($ctx.Request.Url.LocalPath -eq "/api/run" -and $ctx.Request.HttpMethod -eq "POST") {
+      $reader = New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)
+      $req = $reader.ReadToEnd() | ConvertFrom-Json
+      $output = ""
+      try {
+        if ($req.action -eq "command") { $output = Invoke-Expression $req.command | Out-String }
+        elseif ($req.action -eq "read") { $output = Get-Content $req.path -Raw }
+        elseif ($req.action -eq "open") { Start-Process $req.path; $output = "Opened $($req.path)" }
+      } catch { $output = "Error: $($_.Exception.Message)" }
+      $b = [Text.Encoding]::UTF8.GetBytes($output)
+      $ctx.Response.ContentType = "text/plain; charset=utf-8"
+      $ctx.Response.ContentLength64 = $b.Length
+      $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+      $ctx.Response.Close()
+      continue
+    }
+    elseif ([string]::IsNullOrWhiteSpace($rel)) { $rel = "ollama-chat-v2.html" }
     $file = Join-Path $Root $rel
     $full = [IO.Path]::GetFullPath($file)
     if ($full.StartsWith([IO.Path]::GetFullPath($Root)) -and (Test-Path $full -PathType Leaf)) {
@@ -27,6 +43,11 @@ while ($listener.IsListening) {
       $b = [Text.Encoding]::UTF8.GetBytes("404 not found: $rel")
       $ctx.Response.OutputStream.Write($b, 0, $b.Length)
     }
-    $ctx.Response.Close()
-  } catch { }
+  } catch { 
+    Write-Host "Error processing request: $_"
+  } finally {
+    if ($ctx -and $ctx.Response) {
+      try { $ctx.Response.Close() } catch {}
+    }
+  }
 }

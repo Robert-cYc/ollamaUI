@@ -1,0 +1,923 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama Chat</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 10px 16px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 15px; font-weight: 600; }
+  select, button, textarea, input { background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+    border-radius: 6px; padding: 7px 11px; font-size: 13px; font-family: inherit; }
+  select { min-width: 200px; cursor: pointer; }
+  button { cursor: pointer; transition: all 0.15s ease; } 
+  button:hover:not(:disabled) { background: #30363d; transform: scale(1.03); }
+  button:active:not(:disabled) { transform: scale(0.97); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .primary { background: #238636; border-color: #2ea043; }
+  .primary:hover:not(:disabled) { background: #2ea043; }
+  .danger { background: #da3633; color: #fff; border-color: #b32d2a; }
+  .danger:hover:not(:disabled) { background: #b32d2a; }
+  .sep { width: 1px; height: 24px; background: #30363d; margin: 0 4px; }
+  .spacer { margin-left: auto; }
+  
+  .autocomplete { position: relative; display: inline-block; }
+  .dropdown-content {
+    display: none; position: absolute; background: #21262d; width: 100%;
+    border: 1px solid #30363d; border-radius: 6px; margin-top: 4px;
+    max-height: 250px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    animation: fadeInDown 0.15s ease-out forwards; transform-origin: top center;
+  }
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .dropdown-content div { padding: 6px 11px; cursor: pointer; font-size: 13px; }
+  .dropdown-content div:hover { background: #30363d; }
+  
+  .status { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #21262d; }
+  .status.on { background: #1a3a1f; color: #7ee787; }
+  .status.off { background: #3d1418; color: #ff7b72; }
+  .status.wait { background: #3d2c14; color: #e3b341; }
+  main { flex: 1; display: flex; overflow: hidden; }
+  #chatPane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #chat { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 720px; width: 100%; margin: 0; display: flex; gap: 11px; }
+  .avatar { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .user .avatar { background: #1f6feb; } .bot .avatar { background: #8957e5; }
+  .bubble { flex: 1; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; 
+    padding: 10px 14px; border-radius: 12px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .user .bubble { background: #161b22; border: 1px solid #30363d; border-top-right-radius: 4px; }
+  .bot .bubble { background: #0d1117; border: 1px solid #21262d; border-top-left-radius: 4px; }
+  .code-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin: 7px 0; overflow: hidden; }
+  .code-head { display: flex; justify-content: space-between; padding: 4px 11px; background: #0d1117; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e; font-family: ui-monospace, monospace; }
+  .code-copy { background: none; border: none; color: #8b949e; cursor: pointer; font-size: 11px; transition: color 0.15s; }
+  .code-copy:hover { color: #e6edf3; }
+  .bubble pre { padding: 11px; margin: 0; overflow-x: auto; }
+  .bubble code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  .bubble pre code { background: none; padding: 0; }
+  .meta { font-size: 11px; color: #7d8590; margin-top: 6px; font-family: ui-monospace, monospace; }
+  .empty { margin: auto; text-align: center; color: #7d8590; }
+  #logPane { width: 420px; border-left: 1px solid #30363d; background: #010409;
+    display: flex; flex-direction: column; flex-shrink: 0; }
+  #logPane.hidden { display: none; }
+  .logHead { padding: 8px 12px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .logHead button { padding: 3px 8px; font-size: 11px; }
+  #pullDock { display: none; flex-direction: column; gap: 7px; padding: 10px;
+    background: #0d1117; border-bottom: 1px solid #30363d; max-height: 45%; overflow-y: auto; }
+  #pullDock.show { display: flex; }
+  .pullTitle { font-size: 11.5px; font-weight: 700; color: #58a6ff;
+    font-family: ui-monospace, monospace; display: flex; justify-content: space-between; }
+  .pull { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .pull .top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 3px; color: #8b949e; }
+  .pull .lbl { color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pull .pct { flex-shrink: 0; color: #7ee787; font-weight: 700; }
+  .bar { height: 7px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, #238636, #3fb950); transition: width .12s linear; }
+  .pull.done .bar i { background: #1f6feb; }
+  .pull.done .pct { color: #58a6ff; }
+  .pull .sub { color: #6e7681; margin-top: 2px; font-size: 10.5px; }
+  #logs { flex: 1; overflow-y: auto; padding: 8px; font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px; line-height: 1.55; }
+  .log { display: flex; gap: 7px; padding: 2px 4px; border-radius: 3px; }
+  .log:hover { background: #0d1117; }
+  .log .t { color: #484f58; flex-shrink: 0; }
+  .log .lv { flex-shrink: 0; width: 48px; font-weight: 700; }
+  .log .m { word-break: break-word; white-space: pre-wrap; }
+  .INFO .lv { color: #58a6ff; } .OK .lv { color: #7ee787; }
+  .WARN .lv { color: #e3b341; } .ERROR .lv { color: #ff7b72; }
+  .REQ .lv { color: #d2a8ff; } .RES .lv { color: #79c0ff; }
+  .STREAM .lv { color: #56d364; } .STAT .lv { color: #ffa657; }
+  .PULL .lv { color: #ff9bce; }
+  .ERROR .m { color: #ff7b72; } .STAT .m { color: #ffa657; }
+  footer { padding: 14px 20px 18px; border-top: 1px solid #30363d; background: #161b22; }
+  .composer { max-width: 720px; margin: 0; display: flex; gap: 9px; }
+  #input { flex: 1; resize: none; max-height: 170px; min-height: 42px; background: #0d1117;
+    border: 1px solid #30363d; border-radius: 8px; padding: 10px 13px; font-size: 14px; }
+  #input:focus { outline: none; border-color: #58a6ff; }
+  .cursor::after { content: "\258A"; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 0%,50%{opacity:1} 50.1%,100%{opacity:0} }
+  .recording { animation: blink 1s infinite; background-color: rgba(255, 123, 114, 0.2) !important; border-color: #ff7b72 !important; }
+  #setupOverlay { display:none; position:fixed; inset:0; background:rgba(1,4,9,.94);
+    z-index:999; place-items:center; }
+  #setupOverlay .card { max-width:640px; padding:28px 32px; background:#161b22;
+    border:1px solid #30363d; border-radius:12px; }
+  #setupOverlay h2 { font-size:18px; margin-bottom:6px; }
+  #setupOverlay p { color:#8b949e; font-size:13px; line-height:1.6; margin-bottom:14px; }
+  #fixCmd { background:#0d1117; border:1px solid #30363d; padding:12px; border-radius:8px;
+    font-size:12.5px; overflow-x:auto; font-family:ui-monospace,Consolas,monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ollama Chat</h1>
+  <span id="status" class="status wait">connecting...</span>
+  <select id="models"><option>Loading...</option></select>
+  <button id="refresh" title="Reload models">&#8635;</button>
+  <button id="run" class="primary">Run Model</button>
+  <button id="del" class="danger" title="Delete selected model">Delete</button>
+  <span class="sep"></span>
+  <div class="autocomplete">
+    <input id="pullName" placeholder="Select a Model To Download" autocomplete="off" style="width: 280px;">
+    <div id="suggestList" class="dropdown-content"></div>
+  </div>
+  <button id="pullBtn">Pull</button>
+  <button id="pullCancel" class="danger" style="display:none">Cancel</button>
+  <span id="tokenCount" style="margin-left: 12px; font-size: 13px; color: #8b949e;">Token Used: 0</span>
+  <span class="spacer"></span>
+  <span id="hwMonitor" style="font-size: 13px; display: flex; gap: 12px; color: #8b949e; font-family: ui-monospace, monospace; background: #0d1117; padding: 4px 12px; border-radius: 6px; border: 1px solid #30363d;">
+    <span title="CPU Usage">CPU: <span id="hwCpu" style="color:#e6edf3;font-weight:600">--%</span></span>
+    <span title="GPU Usage">GPU: <span id="hwGpu" style="color:#e6edf3;font-weight:600">--%</span></span>
+    <span title="RAM Usage">RAM: <span id="hwRam" style="color:#e6edf3;font-weight:600">--%</span></span>
+  </span>
+</header>
+
+<main>
+  <div id="chatPane">
+    <div id="chat"><div class="empty">Pull a model, pick it, then hit <b>Run Model</b>.</div></div>
+    <footer>
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
+        <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
+        <button id="send" class="primary" disabled>Send</button>
+      </div>
+    </footer>
+  </div>
+  <aside id="logPane">
+    <div class="logHead">
+      <span>Console</span>
+      <label style="font-weight:400;font-size:11px;margin-left:auto;">
+        <input type="checkbox" id="verbose"> verbose
+      </label>
+      <button id="clear">Clear Chat</button>
+      <button id="clearLog">Clear Log</button>
+      <button id="copyLog">copy</button>
+    </div>
+    <div id="pullDock"></div>
+    <div id="logs"></div>
+  </aside>
+</main>
+
+<div id="setupOverlay">
+  <div class="card">
+    <h2>Can't reach Ollama</h2>
+    <p>The server isn't running, or it started without <code>OLLAMA_ORIGINS</code>.
+       Run this in PowerShell:</p>
+    <pre id="fixCmd">Get-Process ollama* | Stop-Process -Force
+$env:OLLAMA_ORIGINS="*"
+ollama serve</pre>
+    <div style="display:flex;gap:8px;margin-top:14px;align-items:center;">
+      <button id="copyFix" class="primary">Copy command</button>
+      <button id="retryNow">Retry now</button>
+      <span id="retryTick" style="color:#6e7681;font-size:12px;">auto-retry in 3s...</span>
+    </div>
+  </div>
+</div>
+
+<script src="sysinfo.js"></script>
+<script>
+const HOST = "http://localhost:11434";
+const $ = id => document.getElementById(id);
+let activeModel = null, history = [], busy = false, autoScroll = true, totalTokens = 0;
+
+const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
+function bytes(b) {
+  if (b == null) return "?";
+  const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return b.toFixed(i < 2 ? 0 : 1) + " " + u[i];
+}
+function secs(s) {
+  if (!isFinite(s) || s < 0) return "--";
+  if (s < 60) return Math.round(s) + "s";
+  return Math.floor(s / 60) + "m " + Math.round(s % 60) + "s";
+}
+const setStatus = (t, c = "wait") => { $("status").textContent = t; $("status").className = "status " + c; };
+
+function log(level, msg, force = false) {
+  if (level === "STREAM" && !$("verbose").checked && !force) return;
+  const n = new Date();
+  const t = n.toTimeString().slice(0, 8) + "." + String(n.getMilliseconds()).padStart(3, "0");
+  const row = document.createElement("div");
+  row.className = "log " + level;
+  row.innerHTML = '<span class="t"></span><span class="lv"></span><span class="m"></span>';
+  row.querySelector(".t").textContent = t;
+  row.querySelector(".lv").textContent = level;
+  row.querySelector(".m").textContent = msg;
+  $("logs").appendChild(row);
+  if (autoScroll) $("logs").scrollTop = $("logs").scrollHeight;
+}
+$("logs").addEventListener("scroll", () => {
+  const el = $("logs");
+  autoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+});
+
+async function loadModels(quiet) {
+  const sel = $("models"), keep = sel.value;
+  if (!quiet) log("REQ", "GET " + HOST + "/api/tags");
+  const t0 = performance.now();
+  try {
+    const res = await fetch(HOST + "/api/tags");
+    if (!quiet) log("RES", res.status + " " + res.statusText + " - " + (performance.now() - t0).toFixed(0) + "ms");
+    const { models } = await res.json();
+    sel.innerHTML = "";
+    if (!models || !models.length) {
+      sel.innerHTML = "<option>No models</option>";
+      log("WARN", "No models installed - use the Pull box above");
+      setStatus("no models", "off"); return;
+    }
+    models.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+      sel.add(new Option(m.name + "  (" + (m.size / 1e9).toFixed(1) + " GB)", m.name));
+      if (!quiet) log("INFO", "- " + m.name + "  " + (m.size / 1e9).toFixed(2) + "GB  " +
+        (m.details && m.details.parameter_size || "?") + "  " + (m.details && m.details.quantization_level || ""));
+    });
+    if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+    if (!quiet) log("OK", "Found " + models.length + " model(s)");
+    setStatus(models.length + " models", "on");
+  } catch (e) {
+    sel.innerHTML = "<option>Connection failed</option>";
+    log("ERROR", "Connection failed: " + e.message);
+    setStatus("offline", "off");
+  }
+}
+
+let pullAbort = null;
+const rows = new Map();
+
+function dockRow(key, label) {
+  if (rows.has(key)) return rows.get(key);
+  const el = document.createElement("div");
+  el.className = "pull";
+  el.innerHTML = '<div class="top"><span class="lbl"></span><span class="pct">0%</span></div>' +
+                 '<div class="bar"><i></i></div><div class="sub"></div>';
+  el.querySelector(".lbl").textContent = label;
+  $("pullDock").appendChild(el);
+  const o = { el, bar: el.querySelector("i"), pct: el.querySelector(".pct"),
+              sub: el.querySelector(".sub"), lastBytes: 0, lastT: performance.now() };
+  rows.set(key, o); return o;
+}
+
+async function pullModel() {
+  const name = $("pullName").value.trim();
+  if (!name) return log("WARN", "Type a model name first, e.g. llama3.2:3b");
+  rows.clear(); $("pullDock").innerHTML = ""; $("pullDock").classList.add("show");
+  const head = document.createElement("div");
+  head.className = "pullTitle";
+  head.innerHTML = '<span></span><span id="pullOverall">starting...</span>';
+  head.querySelector("span").textContent = "Downloading " + name;
+  $("pullDock").appendChild(head);
+
+  pullAbort = new AbortController();
+  $("pullBtn").disabled = true; $("pullName").disabled = true;
+  $("pullCancel").style.display = "";
+  setStatus("pulling " + name + "...", "wait");
+  log("INFO", "=== Pull: " + name + " ===");
+  log("REQ", 'POST /api/pull {model:"' + name + '", stream:true}');
+
+  const t0 = performance.now();
+  let lastStatus = "", total = 0;
+  try {
+    const res = await fetch(HOST + "/api/pull", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name: name, stream: true }),
+      signal: pullAbort.signal
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done: fin, value } = await reader.read();
+      if (fin) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const o = JSON.parse(line);
+        if (o.error) throw new Error(o.error);
+        if (o.digest && o.total) {
+          const short = o.digest.replace("sha256:", "").slice(0, 12);
+          const r = dockRow(o.digest, "layer " + short);
+          const cur = o.completed || 0;
+          const pct = (cur / o.total) * 100;
+          r.bar.style.width = pct.toFixed(1) + "%";
+          r.pct.textContent = pct.toFixed(1) + "%";
+          const now = performance.now(), dt = (now - r.lastT) / 1000;
+          if (dt > 0.35) {
+            const speed = (cur - r.lastBytes) / dt;
+            const eta = speed > 0 ? (o.total - cur) / speed : Infinity;
+            r.sub.textContent = bytes(cur) + " / " + bytes(o.total) + " - " + bytes(speed) + "/s - ETA " + secs(eta);
+            r.lastBytes = cur; r.lastT = now;
+          }
+          if (cur >= o.total) { r.el.classList.add("done"); r.sub.textContent = bytes(o.total) + " - complete"; }
+          total = o.total;
+          const ov = $("pullOverall");
+          if (ov) ov.textContent = pct.toFixed(0) + "% - " + bytes(cur) + "/" + bytes(o.total);
+          log("STREAM", o.status + " " + short + " " + pct.toFixed(1) + "%");
+        }
+        if (o.status && o.status !== lastStatus) {
+          if (!/^pulling [0-9a-f]{12}/.test(o.status)) log("PULL", o.status);
+          lastStatus = o.status;
+        }
+        if (o.status === "success") {
+          const wall = (performance.now() - t0) / 1000;
+          log("OK", 'Pulled "' + name + '" in ' + secs(wall));
+          if (total) log("STAT", "avg speed: " + bytes(total / wall) + "/s over " + bytes(total));
+          const ov = $("pullOverall"); if (ov) ov.textContent = "done in " + secs(wall);
+          await loadModels(true);
+          const match = [...$("models").options].find(x => x.value.startsWith(name.split(":")[0]));
+          if (match) $("models").value = match.value;
+          setStatus("pulled " + name, "on");
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { log("WARN", "Pull cancelled by user"); setStatus("pull cancelled", "off"); }
+    else { log("ERROR", "Pull failed: " + e.message); setStatus("pull failed", "off"); }
+  } finally {
+    pullAbort = null;
+    $("pullBtn").disabled = false; $("pullName").disabled = false;
+    $("pullCancel").style.display = "none";
+    setTimeout(() => $("pullDock").classList.remove("show"), 6000);
+  }
+}
+
+async function delModel() {
+  const name = $("models").value;
+  if (!name || /^(No |Conn)/.test(name)) return;
+  if (!confirm('Delete "' + name + '" from disk?')) return;
+  log("REQ", 'DELETE /api/delete {model:"' + name + '"}');
+  try {
+    const res = await fetch(HOST + "/api/delete", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name: name })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    log("OK", "Deleted " + name);
+    if (activeModel === name) { 
+      activeModel = null; 
+      $("input").disabled = true; $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+      $("run").textContent = "Run Model"; $("run").className = "primary";
+    }
+    loadModels(true);
+  } catch (e) { log("ERROR", "Delete failed: " + e.message); }
+}
+
+async function runModel() {
+  if (activeModel) {
+    const name = activeModel;
+    $("run").disabled = true;
+    log("INFO", "=== Unloading model: " + name + " ===");
+    try {
+      await fetch(HOST + "/api/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: name, prompt: "", keep_alive: 0 })
+      });
+      log("OK", 'Model "' + name + '" unloaded');
+      activeModel = null;
+      $("run").textContent = "Run Model"; $("run").className = "primary";
+      $("input").disabled = true; $("input").placeholder = "Run a model first...";
+      $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+      setStatus("stopped", "off");
+    } catch (e) {
+      log("ERROR", "Unload failed: " + e.message);
+    } finally {
+      $("run").disabled = false;
+    }
+    return;
+  }
+
+  const name = $("models").value;
+  if (!name || /^(No |Conn|Load)/.test(name)) return log("WARN", "No valid model selected");
+  $("run").disabled = true;
+  setStatus("loading " + name + "...", "wait");
+  log("INFO", "=== Loading model: " + name + " ===");
+  log("REQ", 'POST /api/generate {model:"' + name + '", prompt:"", keep_alive:"10m"}');
+  const t0 = performance.now();
+  try {
+    const res = await fetch(HOST + "/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, prompt: "", stream: false, keep_alive: "10m" })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    const data = await res.json();
+    log("RES", res.status + " OK - wall " + (performance.now() - t0).toFixed(0) + "ms");
+    log("STAT", "load_duration : " + ms(data.load_duration));
+    log("OK", 'Model "' + name + '" resident in memory');
+    psCheck();
+    activeModel = name; history = [{ role: "system", content: "隢?敹蝙?函?擃葉??蝑lease always answer in Traditional Chinese." }];
+    $("chat").innerHTML = "";
+    addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
+    $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
+    $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
+    setStatus("running: " + name, "on");
+    
+    $("run").textContent = "Stop Model"; $("run").className = "danger";
+  } catch (e) {
+    log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
+  } finally { $("run").disabled = false; }
+}
+
+async function psCheck() {
+  try {
+    const r = await fetch(HOST + "/api/ps");
+    const { models } = await r.json();
+    if (!models || !models.length) return log("WARN", "ollama ps -> nothing resident");
+    models.forEach(m => {
+      const gpu = m.size ? ((m.size_vram || 0) / m.size * 100).toFixed(0) : 0;
+      log("STAT", "ps -> " + m.name + " | " + bytes(m.size) + " | GPU " + gpu + "% / CPU " +
+        (100 - gpu) + "% | expires " + new Date(m.expires_at).toLocaleTimeString());
+    });
+  } catch (e) { log("WARN", "ps failed: " + e.message); }
+}
+
+async function send(isToolRetry = false) {
+  if (!isToolRetry) {
+    const text = $("input").value.trim();
+    if (!text || busy || !activeModel) return;
+    busy = true; $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+    $("input").value = ""; $("input").style.height = "auto";
+    addMsg("user", text);
+    history.push({ role: "user", content: text });
+    log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
+    log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
+  } else {
+    log("REQ", "POST /api/chat (Tool Retry)  model=" + activeModel + "  msgs=" + history.length);
+  }
+
+  const bubble = addMsg("bot", isToolRetry ? "*(?亥岷銝?..)*\n" : ""); bubble.classList.add("cursor");
+  let reply = "", chunks = 0, ttft = null, toolCalls = null;
+  const t0 = performance.now();
+  
+  const tools = [
+    { type: "function", function: { name: "search_web", description: "Search the web for info.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
+    { type: "function", function: { name: "read_url", description: "Read specific URL.", parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } } },
+    { type: "function", function: { name: "get_news", description: "Get news.", parameters: { type: "object", properties: { query: { type: "string" } } } } },
+    { type: "function", function: { name: "get_system_info", description: "Get detailed system specifications including OS, CPU, RAM, Network Cards (NICs), IP addresses, and BIOS info." } },
+    { type: "function", function: { name: "get_hardware_status", description: "Get real-time usage (load %) and temperature for CPU, GPU, and RAM only." } },
+    { type: "function", function: { name: "get_current_time", description: "Get current date/time." } },
+    { type: "function", function: { name: "calculator", description: "Eval math.", parameters: { type: "object", properties: { expression: { type: "string" } }, required: ["expression"] } } },
+    { type: "function", function: { name: "get_crypto_price", description: "Get crypto price.", parameters: { type: "object", properties: { coin_id: { type: "string" } }, required: ["coin_id"] } } },
+    { type: "function", function: { name: "search_wikipedia", description: "Search Wiki.", parameters: { type: "object", properties: { query: { type: "string" }, lang: { type: "string", default: "zh" } }, required: ["query"] } } },
+    { type: "function", function: { name: "get_weather", description: "Get weather.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } } },
+    { type: "function", function: { name: "generate_image", description: "Generate an image using Pollinations.ai. Returns a markdown image link.", parameters: { type: "object", properties: { prompt: { type: "string", description: "English prompt for image generation" } }, required: ["prompt"] } } },
+    { type: "function", function: { name: "get_ip_location", description: "Get the current public IP and location information." } },
+    { type: "function", function: { name: "get_hacker_news", description: "Get top tech news from Hacker News." } },
+    { type: "function", function: { name: "translate_text", description: "Translate text using Lingva API.", parameters: { type: "object", properties: { text: { type: "string" }, target_lang: { type: "string", description: "Language code (e.g., 'en', 'zh', 'ja')" } }, required: ["text", "target_lang"] } } },
+    { type: "function", function: { name: "open_application", description: "Open a local application or file.", parameters: { type: "object", properties: { path: { type: "string", description: "Name or path of the application/file" } }, required: ["path"] } } },
+    { type: "function", function: { name: "read_local_file", description: "Read contents of a local file.", parameters: { type: "object", properties: { path: { type: "string", description: "Absolute path to the file" } }, required: ["path"] } } },
+    { type: "function", function: { name: "run_command", description: "Execute a PowerShell command locally.", parameters: { type: "object", properties: { command: { type: "string", description: "The PowerShell command to run" } }, required: ["command"] } } }
+  ];
+
+  try {
+    const res = await fetch(HOST + "/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools, options: { temperature: 0.2 } })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const o = JSON.parse(line);
+        if (o.message) {
+          if (o.message.tool_calls) {
+            toolCalls = o.message.tool_calls;
+          }
+          if (o.message.content) {
+            if (ttft === null) { ttft = performance.now() - t0; log("OK", "First token in " + ttft.toFixed(0) + "ms (TTFT)"); }
+            if (isToolRetry && chunks === 0) reply = ""; // 皜?內??
+            chunks++; reply += o.message.content;
+            bubble.innerHTML = md(reply);
+            $("chat").scrollTop = $("chat").scrollHeight;
+            log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
+          }
+        }
+        if (o.done) {
+          totalTokens += (o.eval_count || 0) + (o.prompt_eval_count || 0);
+          if ($("tokenCount")) {
+            const displayTokens = totalTokens >= 1000 ? (totalTokens / 1000).toFixed(1) + "K" : totalTokens;
+            $("tokenCount").textContent = "Token Used: " + displayTokens;
+          }
+          
+          const wall = performance.now() - t0;
+          const tps = o.eval_count && o.eval_duration ? (o.eval_count / (o.eval_duration / 1e9)).toFixed(1) : "?";
+          log("STAT", "prompt_tokens : " + (o.prompt_eval_count != null ? o.prompt_eval_count : "-") + "  (" + ms(o.prompt_eval_duration) + ")");
+          log("STAT", "output_tokens : " + (o.eval_count != null ? o.eval_count : "-") + "  (" + ms(o.eval_duration) + ")");
+          log("STAT", "speed         : " + tps + " tok/s");
+          log("STAT", "total_duration: " + ms(o.total_duration) + " | wall " + wall.toFixed(0) + "ms | chunks " + chunks);
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = (o.eval_count != null ? o.eval_count : "?") + " tok - " + tps + " tok/s - " +
+            (wall / 1000).toFixed(1) + "s - TTFT " + (ttft != null ? ttft.toFixed(0) : "?") + "ms";
+          bubble.after(meta);
+        }
+      }
+    }
+    if (!toolCalls && reply && reply.includes("{") && reply.includes("}")) {
+      const match = reply.match(/\{[\s\S]*"name"\s*:\s*"[^"]+"[\s\S]*\}/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[0]);
+          if (parsed.name || (parsed.function && parsed.function.name)) {
+            toolCalls = [{ function: { name: parsed.name || parsed.function.name, arguments: parsed.parameters || parsed.arguments || parsed } }];
+            reply = reply.replace(match[0], "").trim();
+            bubble.innerHTML = md(reply) + (reply ? "<br>" : "") + "*(Triggering Tool...)*";
+          }
+        } catch (e) {}
+      }
+    }
+    
+    if (toolCalls && toolCalls.length > 0) {
+      history.push({ role: "assistant", content: reply, tool_calls: toolCalls });
+      log("INFO", "LLM called tools: " + toolCalls.map(t => t.function.name).join(", "));
+      
+      for (const tc of toolCalls) {
+        if (tc.function.name === "get_system_info") {
+          const sysInfo = typeof window.sysinfo_data !== "undefined" ? window.sysinfo_data : "Error: sysinfo.js not found.";
+          history.push({ role: "tool", name: tc.function.name, content: sysInfo });
+        } else if (tc.function.name === "search_web") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query || args.q));
+            let data = await res.text();
+            data = data.replace(/https:\/\/duckduckgo\.com\/l\/\?uddg=([^&]+)(?:&[^)\s\]'"]*)?/g, (m, p1) => decodeURIComponent(p1));
+            history.push({ role: "tool", name: tc.function.name, content: data.substring(0, 4000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "read_url") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
+            const res = await fetch("https://r.jina.ai/" + args.url);
+            history.push({ role: "tool", name: tc.function.name, content: (await res.text()).substring(0, 8000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_news") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const q = args.query || args.q || "";
+            const url = q ? "https://news.google.com/rss/search?q=" + encodeURIComponent(q) : "https://news.google.com/rss";
+            const res = await fetch("https://r.jina.ai/" + url);
+            history.push({ role: "tool", name: tc.function.name, content: (await res.text()).substring(0, 4000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_hardware_status") {
+          try {
+            let content = "Current Hardware Status:\n";
+            if (typeof hwTrend !== "undefined" && hwTrend.length > 0) {
+              const last = hwTrend[hwTrend.length - 1];
+              content += `Time: ${last.time}, CPU: ${last.cpu}% (${last.cpuTemp}°C), GPU: ${last.gpu}% (${last.gpuTemp}°C), RAM: ${last.ram}%\n`;
+              content += "Trend (last 5 records):\n";
+              const recent = hwTrend.slice(-5);
+              recent.forEach(r => content += `[${r.time}] CPU: ${r.cpu}% (${r.cpuTemp}°C), GPU: ${r.gpu}% (${r.gpuTemp}°C), RAM: ${r.ram}%\n`);
+            } else {
+              content = "Hardware monitor data is currently unavailable.";
+            }
+            history.push({ role: "tool", name: tc.function.name, content: content });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_current_time") {
+          const d = new Date();
+          history.push({ role: "tool", name: tc.function.name, content: `Date: ${d.toLocaleString()}\nTZ: ${Intl.DateTimeFormat().resolvedOptions().timeZone}` });
+        } else if (tc.function.name === "calculator") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            history.push({ role: "tool", name: tc.function.name, content: `Result = ${new Function('return ' + args.expression)()}` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_crypto_price") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${args.coin_id}&vs_currencies=usd,twd&include_24hr_change=true`);
+            history.push({ role: "tool", name: tc.function.name, content: JSON.stringify(await res.json()) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "search_wikipedia") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const res = await fetch(`https://${args.lang || "zh"}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(args.query)}`);
+            const data = await res.json();
+            history.push({ role: "tool", name: tc.function.name, content: `Title: ${data.title}\nSummary: ${data.extract}` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_weather") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(args.city)}&count=1&language=zh`);
+            const geoData = await geoRes.json();
+            if (!geoData.results || !geoData.results.length) throw new Error("City not found");
+            const { latitude, longitude, name, country } = geoData.results[0];
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
+            const weatherData = await weatherRes.json();
+            history.push({ role: "tool", name: tc.function.name, content: `Loc: ${name}, ${country}\nCur: ${weatherData.current.temperature_2m}°C, Hum ${weatherData.current.relative_humidity_2m}%\nMax/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "generate_image") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            history.push({ role: "tool", name: tc.function.name, content: `![Generated Image](https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?width=1024&height=1024&nologo=true)` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_ip_location") {
+          try {
+            const res = await fetch("http://ip-api.com/json/");
+            history.push({ role: "tool", name: tc.function.name, content: JSON.stringify(await res.json()) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "get_hacker_news") {
+          try {
+            const res = await fetch("https://hacker-news.firebaseio.com/v0/topstories.json");
+            const ids = (await res.json()).slice(0, 5);
+            let news = "";
+            for (const id of ids) {
+              const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+              const item = await itemRes.json();
+              news += `- [${item.title}](${item.url}) (Score: ${item.score})\n`;
+            }
+            history.push({ role: "tool", name: tc.function.name, content: news });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (tc.function.name === "translate_text") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const res = await fetch(`https://lingva.ml/api/v1/auto/${args.target_lang}/${encodeURIComponent(args.text)}`);
+            history.push({ role: "tool", name: tc.function.name, content: (await res.json()).translation || "Translation failed." });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
+        } else if (["open_application", "read_local_file", "run_command"].includes(tc.function.name)) {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const actionMap = { open_application: "open", read_local_file: "read", run_command: "command" };
+            const payload = { action: actionMap[tc.function.name] };
+            if (tc.function.name === "run_command") payload.command = args.command;
+            else payload.path = args.path;
+            const res = await fetch("/api/run", { method: "POST", body: JSON.stringify(payload) });
+            const result = await res.text();
+            history.push({ role: "tool", name: tc.function.name, content: result.substring(0, 8000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error (is _webserver.ps1 running?): " + err.message }); }
+        }
+      }
+      
+      bubble.classList.remove("cursor");
+      await send(true);
+      return; 
+    } else {
+      history.push({ role: "assistant", content: reply });
+      log("OK", "Reply complete (" + reply.length + " chars)");
+    }
+  } catch (e) {
+    bubble.textContent = "Error: " + e.message;
+    bubble.style.color = "#ff7b72";
+    log("ERROR", "Chat failed: " + e.message);
+  } finally {
+    if (!toolCalls || toolCalls.length === 0) {
+      bubble.classList.remove("cursor");
+      busy = false; $("send").disabled = false; 
+      if ($("micBtn")) {
+        $("micBtn").disabled = false;
+        if (typeof autoMic !== "undefined" && autoMic && typeof recognition !== "undefined" && !isRecording) {
+          try { recognition.start(); } catch (e) {}
+        }
+      }
+      $("input").focus();
+    }
+  }
+}
+
+function addMsg(role, text) {
+  const w = document.createElement("div");
+  w.className = "msg " + (role === "user" ? "user" : "bot");
+  w.innerHTML = '<div class="avatar"></div><div class="bubble"></div>';
+  w.querySelector(".avatar").textContent = role === "user" ? "YOU" : "AI";
+  w.querySelector(".bubble").innerHTML = md(text);
+  $("chat").appendChild(w);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  return w.querySelector(".bubble");
+}
+function md(t) {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/```(\w*)\n([\s\S]*?)```/g, function (_, l, c) { 
+      return `<div class="code-box"><div class="code-head"><span>${l||'code'}</span><button class="code-copy" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',2000)">Copy</button></div><pre><code>${c}</code></pre></div>`; 
+    })
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null, isRecording = false, originalText = "", autoMic = false;
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  $("micBtn").style.display = "inline-block";
+  
+  $("micBtn").onclick = () => {
+    if (isRecording) {
+      autoMic = false;
+      recognition.stop();
+    } else {
+      autoMic = true;
+      recognition.start();
+    }
+  };
+  
+  let isVoiceSending = false;
+  let autoSendTimer = null;
+
+  recognition.onstart = () => {
+    isRecording = true;
+    isVoiceSending = false;
+    if (autoSendTimer) clearTimeout(autoSendTimer);
+    $("micBtn").classList.add("recording");
+    originalText = $("input").value + ($("input").value && !$("input").value.endsWith(" ") ? " " : "");
+  };
+  
+  recognition.onresult = (e) => {
+    if (isVoiceSending) return;
+    if (autoSendTimer) clearTimeout(autoSendTimer);
+
+    let transcript = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+    
+    let isSend = false;
+    let isStop = false;
+    if (/(停止錄音|stop recording)[。.,!?\s]*$/i.test(transcript)) {
+      transcript = transcript.replace(/(停止錄音|stop recording)[。.,!?\s]*$/i, "");
+      isStop = true;
+    } else if (/(發送|傳送|send)[。.,!?\s]*$/i.test(transcript)) {
+      transcript = transcript.replace(/(發送|傳送|send)[。.,!?\s]*$/i, "");
+      isSend = true;
+      isVoiceSending = true;
+    }
+    
+    $("input").value = originalText + transcript;
+    $("input").dispatchEvent(new Event("input"));
+    
+    if (isStop) {
+      autoMic = false;
+      recognition.stop();
+    } else if (isSend) {
+      recognition.stop();
+      setTimeout(send, 100);
+    } else if (transcript.trim()) {
+      autoSendTimer = setTimeout(() => {
+        if (!isVoiceSending && $("input").value.trim() !== "") {
+          isVoiceSending = true;
+          recognition.stop();
+          send();
+        }
+      }, 1000);
+    }
+  };
+  
+  recognition.onend = () => {
+    isRecording = false;
+    if (autoSendTimer) clearTimeout(autoSendTimer);
+    $("micBtn").classList.remove("recording");
+  };
+  
+  recognition.onerror = (e) => {
+    log("ERROR", "Speech error: " + e.error);
+    isRecording = false;
+    $("micBtn").classList.remove("recording");
+  };
+}
+
+$("run").onclick = runModel;
+$("del").onclick = delModel;
+$("pullBtn").onclick = pullModel;
+$("pullCancel").onclick = () => { if (pullAbort) pullAbort.abort(); };
+$("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullModel(); });
+$("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
+$("send").onclick = send;
+$("clear").onclick = () => { history = [{ role: "system", content: "隢?敹蝙?函?擃葉??蝑lease always answer in Traditional Chinese." }]; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
+$("clearLog").onclick = () => $("logs").innerHTML = "";
+$("copyLog").onclick = () => {
+  navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
+  log("OK", "Logs copied to clipboard");
+};
+$("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+$("input").addEventListener("input", e => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 170) + "px";
+});
+
+(function healthWatch() {
+  const ov = $("setupOverlay");
+  let timer = null, n = 3;
+  async function alive() {
+    try { const r = await fetch(HOST + "/api/tags", { cache: "no-store" }); return r.ok; }
+    catch (e) { return false; }
+  }
+  async function check() {
+    if (await alive()) {
+      if (ov.style.display === "grid") { log("OK", "Server reachable - resuming"); loadModels(); }
+      ov.style.display = "none";
+      if (timer) { clearInterval(timer); timer = null; }
+    } else {
+      if (ov.style.display !== "grid") { ov.style.display = "grid"; log("ERROR", "Ollama unreachable"); }
+      if (!timer) {
+        n = 3;
+        timer = setInterval(() => {
+          n--;
+          $("retryTick").textContent = n <= 0 ? "checking..." : "auto-retry in " + n + "s...";
+          if (n <= 0) { n = 3; check(); }
+        }, 1000);
+      }
+    }
+  }
+  $("copyFix").onclick = e => {
+    navigator.clipboard.writeText($("fixCmd").textContent);
+    e.target.textContent = "Copied";
+    setTimeout(() => e.target.textContent = "Copy command", 1500);
+  };
+  $("retryNow").onclick = check;
+  setTimeout(check, 600);
+  if (location.protocol === "file:")
+    log("WARN", "Opened via file:// - origin is null. Use the .bat launcher instead.");
+})();
+
+log("INFO", "Ollama Web Chat starting...");
+log("INFO", "Host: " + HOST);
+log("INFO", "Page origin: " + location.origin);
+loadModels();
+setInterval(() => { if (activeModel && !busy) psCheck(); }, 60000);
+
+const pullName = $("pullName");
+const suggestList = $("suggestList");
+const suggestModels = ["llama3.2:3b", "llama3.2:1b", "llama3.1:8b", "qwen2.5:7b", "qwen2.5-coder:7b", "gemma2:9b", "mistral:7b", "phi3.5", "deepseek-r1:8b", "nomic-embed-text"];
+const showSuggest = () => {
+  suggestList.innerHTML = "";
+  const val = pullName.value.toLowerCase();
+  suggestModels.filter(m => m.includes(val)).forEach(m => {
+    const d = document.createElement("div");
+    d.textContent = m;
+    d.onmousedown = (e) => { e.preventDefault(); pullName.value = m; suggestList.style.display = "none"; };
+    suggestList.appendChild(d);
+  });
+  suggestList.style.display = suggestList.children.length ? "block" : "none";
+};
+pullName.addEventListener("focus", showSuggest);
+pullName.addEventListener("input", showSuggest);
+pullName.addEventListener("blur", () => suggestList.style.display = "none");
+pullName.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pullBtn").click(); });
+
+let hwTrend = [];
+async function updateHardwareStatus() {
+  try {
+    const res = await fetch("http://localhost:8085/data.json");
+    if (!res.ok) return;
+    const data = await res.json();
+    let cpu = "--", gpu = "--", ram = "--", cpuTemp = "--", gpuTemp = "--";
+    
+    function findNode(node) {
+      if ((node.Text === "CPU Total" || node.Text === "CPU Core") && node.Value && node.Value.includes("%")) cpu = parseFloat(node.Value).toFixed(1);
+      if ((node.Text === "GPU Core" || node.Text === "GPU Core 3D") && node.Value && node.Value.includes("%")) gpu = parseFloat(node.Value).toFixed(1);
+      if (node.Text === "Memory" && node.Value && node.Value.includes("%")) ram = parseFloat(node.Value).toFixed(1);
+      
+      if ((node.Text === "CPU Package" || node.Text === "CPU Core" || node.Text === "Core Average") && node.Value && node.Value.includes("°C")) {
+         if (cpuTemp === "--") cpuTemp = parseFloat(node.Value).toFixed(1);
+      }
+      if ((node.Text === "GPU Core" || node.Text === "GPU Hot Spot" || node.Text === "GPU") && node.Value && node.Value.includes("°C")) {
+         if (gpuTemp === "--") gpuTemp = parseFloat(node.Value).toFixed(1);
+      }
+      if (node.Children) node.Children.forEach(findNode);
+    }
+    findNode(data);
+    
+    function getColor(val) {
+      const v = parseFloat(val);
+      if (isNaN(v)) return "#e6edf3";
+      if (v >= 90) return "#ff7b72";
+      if (v >= 80) return "#d29922";
+      return "#e6edf3";
+    }
+    
+    if (cpu !== "--") {
+      $("hwCpu").textContent = cpu.padStart(4, " ") + "%" + (cpuTemp !== "--" ? ` ${cpuTemp}°C` : "");
+      $("hwCpu").style.color = getColor(cpu);
+    }
+    if (gpu !== "--") {
+      $("hwGpu").textContent = gpu.padStart(4, " ") + "%" + (gpuTemp !== "--" ? ` ${gpuTemp}°C` : "");
+      $("hwGpu").style.color = getColor(gpu);
+    }
+    if (ram !== "--") $("hwRam").textContent = ram.padStart(4, " ") + "%";
+    
+    hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram, cpuTemp, gpuTemp });
+    if (hwTrend.length > 300) hwTrend.shift();
+  } catch (e) {
+    // Silently fail if LibreHardwareMonitor is not running
+  }
+}
+setInterval(updateHardwareStatus, 1000);
+updateHardwareStatus();
+</script>
+</body>
+</html>
+
