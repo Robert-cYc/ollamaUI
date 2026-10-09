@@ -24,10 +24,10 @@ System Locale:                 en-us;English (United States)
 Input Locale:                  zh-tw;Chinese (Taiwan)
 Time Zone:                     (UTC+08:00) Taipei
 Total Physical Memory:         32,253 MB
-Available Physical Memory:     12,889 MB
+Available Physical Memory:     11,156 MB
 Virtual Memory: Max Size:      48,637 MB
-Virtual Memory: Available:     26,611 MB
-Virtual Memory: In Use:        22,026 MB
+Virtual Memory: Available:     22,062 MB
+Virtual Memory: In Use:        26,575 MB
 Page File Location(s):         C:\pagefile.sys
 Domain:                        WORKGROUP
 Logon Server:                  \\ROBERT
