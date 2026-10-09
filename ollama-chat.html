@@ -112,6 +112,7 @@
   </datalist>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
+  <span id="tokenCount" style="margin-left: 12px; font-size: 13px; color: #8b949e;">Token Used: 0</span>
   <span class="spacer"></span>
   <span id="hwMonitor" style="font-size: 13px; display: flex; gap: 12px; color: #8b949e; font-family: ui-monospace, monospace; background: #0d1117; padding: 4px 12px; border-radius: 6px; border: 1px solid #30363d;">
     <span title="CPU Usage">CPU: <span id="hwCpu" style="color:#e6edf3;font-weight:600">--%</span></span>
@@ -165,7 +166,7 @@ ollama serve</pre>
 <script>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
-let activeModel = null, history = [], busy = false, autoScroll = true;
+let activeModel = null, history = [], busy = false, autoScroll = true, totalTokens = 0;
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
@@ -480,6 +481,9 @@ async function send(isToolRetry = false) {
           }
         }
         if (o.done) {
+          totalTokens += (o.eval_count || 0) + (o.prompt_eval_count || 0);
+          if ($("tokenCount")) $("tokenCount").textContent = "Token Used: " + totalTokens;
+          
           const wall = performance.now() - t0;
           const tps = o.eval_count && o.eval_duration ? (o.eval_count / (o.eval_duration / 1e9)).toFixed(1) : "?";
           log("STAT", "prompt_tokens : " + (o.prompt_eval_count != null ? o.prompt_eval_count : "-") + "  (" + ms(o.prompt_eval_duration) + ")");
