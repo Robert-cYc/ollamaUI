@@ -368,7 +368,8 @@ async function runModel() {
     log("STAT", "load_duration : " + ms(data.load_duration));
     log("OK", 'Model "' + name + '" resident in memory');
     psCheck();
-    activeModel = name; history = [];
+    activeModel = name;
+    history = [{ role: "system", content: "You are a helpful AI assistant. When a user asks for news, details, or real-time information, you MUST use the `search_web` tool. Because `search_web` only returns short snippets, you MUST then use the `read_url` tool on the most relevant URL to extract the full context before answering." }];
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
@@ -425,7 +426,7 @@ async function send(isToolRetry = false) {
       type: "function",
       function: {
         name: "search_web",
-        description: "Search the web for information using DuckDuckGo. Use this to find current events or lookup facts.",
+        description: "Search the web for information. This ONLY returns short snippets and URLs. To get the full context (e.g. for news articles or detailed facts), you MUST subsequently call the 'read_url' tool with one of the returned URLs.",
         parameters: { type: "object", properties: { query: { type: "string", description: "The search query" } }, required: ["query"] }
       }
     },
@@ -647,7 +648,11 @@ $("pullCancel").onclick = () => { if (pullAbort) pullAbort.abort(); };
 $("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullModel(); });
 $("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
 $("send").onclick = send;
-$("clear").onclick = () => { history = []; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
+$("clear").onclick = () => { 
+  history = [{ role: "system", content: "You are a helpful AI assistant. When a user asks for news, details, or real-time information, you MUST use the `search_web` tool. Because `search_web` only returns short snippets, you MUST then use the `read_url` tool on the most relevant URL to extract the full context before answering." }];
+  $("chat").innerHTML = '<div class="empty">History cleared.</div>'; 
+  log("INFO", "Chat history cleared"); 
+};
 $("clearLog").onclick = () => $("logs").innerHTML = "";
 $("copyLog").onclick = () => {
   navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
