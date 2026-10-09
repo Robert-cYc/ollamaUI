@@ -667,7 +667,11 @@ if (SpeechRecognition) {
     for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
     
     let isSend = false;
-    if (/(傳送|send)[。.,!?\s]*$/i.test(transcript)) {
+    let isStop = false;
+    if (/(停止錄音|stop recording)[。.,!?\s]*$/i.test(transcript)) {
+      transcript = transcript.replace(/(停止錄音|stop recording)[。.,!?\s]*$/i, "");
+      isStop = true;
+    } else if (/(傳送|send)[。.,!?\s]*$/i.test(transcript)) {
       transcript = transcript.replace(/(傳送|send)[。.,!?\s]*$/i, "");
       isSend = true;
       isVoiceSending = true;
@@ -676,7 +680,10 @@ if (SpeechRecognition) {
     $("input").value = originalText + transcript;
     $("input").dispatchEvent(new Event("input"));
     
-    if (isSend) {
+    if (isStop) {
+      autoMic = false;
+      recognition.stop();
+    } else if (isSend) {
       recognition.stop();
       setTimeout(send, 100);
     } else if (transcript.trim()) {
