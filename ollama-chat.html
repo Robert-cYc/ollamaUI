@@ -482,7 +482,10 @@ async function send(isToolRetry = false) {
         }
         if (o.done) {
           totalTokens += (o.eval_count || 0) + (o.prompt_eval_count || 0);
-          if ($("tokenCount")) $("tokenCount").textContent = "Token Used: " + totalTokens;
+          if ($("tokenCount")) {
+            const displayTokens = totalTokens >= 1000 ? (totalTokens / 1000).toFixed(1) + "K" : totalTokens;
+            $("tokenCount").textContent = "Token Used: " + displayTokens;
+          }
           
           const wall = performance.now() - t0;
           const tps = o.eval_count && o.eval_duration ? (o.eval_count / (o.eval_duration / 1e9)).toFixed(1) : "?";
