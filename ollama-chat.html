@@ -125,7 +125,10 @@
   <div id="chatPane">
     <div id="chat"><div class="empty">Pull a model, pick it, then hit <b>Run Model</b>.</div></div>
     <footer>
+      <div id="attachments" style="display:none; padding: 0 0 10px 0; gap: 8px; flex-wrap: wrap; max-width: 720px; margin: 0 auto;"></div>
       <div class="composer">
+        <input type="file" id="imgUpload" accept="image/png, image/jpeg, image/webp" style="display:none" multiple>
+        <button id="attachBtn" title="Attach Image" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e;">&#128444;</button>
         <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
         <button id="send" class="primary" disabled>Send</button>
       </div>
@@ -164,7 +167,7 @@ ollama serve</pre>
 <script>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
-let activeModel = null, history = [], busy = false, autoScroll = true;
+let activeModel = null, history = [], busy = false, autoScroll = true, currentImages = [];
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
@@ -368,7 +371,7 @@ async function runModel() {
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
-    $("send").disabled = false; $("input").focus();
+    $("send").disabled = false; $("attachBtn").disabled = false; $("input").focus();
     setStatus("running: " + name, "on");
   } catch (e) {
     log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
@@ -391,11 +394,19 @@ async function psCheck() {
 async function send(isToolRetry = false) {
   if (!isToolRetry) {
     const text = $("input").value.trim();
-    if (!text || busy || !activeModel) return;
-    busy = true; $("send").disabled = true;
+    if ((!text && currentImages.length === 0) || busy || !activeModel) return;
+    busy = true; $("send").disabled = true; $("attachBtn").disabled = true;
     $("input").value = ""; $("input").style.height = "auto";
-    addMsg("user", text);
-    history.push({ role: "user", content: text });
+    const uiText = text + (currentImages.length ? `\n\n*[Attached ${currentImages.length} image(s)]*` : "");
+    addMsg("user", uiText);
+    const msgObj = { role: "user", content: text };
+    if (currentImages.length > 0) {
+      msgObj.images = [...currentImages];
+      currentImages = [];
+      $("attachments").innerHTML = "";
+      $("attachments").style.display = "none";
+    }
+    history.push(msgObj);
     log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
     log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
   } else {
@@ -569,7 +580,7 @@ async function send(isToolRetry = false) {
   } finally {
     if (!toolCalls || toolCalls.length === 0) {
       bubble.classList.remove("cursor");
-      busy = false; $("send").disabled = false; $("input").focus();
+      busy = false; $("send").disabled = false; $("attachBtn").disabled = false; $("input").focus();
     }
   }
 }
@@ -591,6 +602,23 @@ function md(t) {
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
 }
 
+$("attachBtn").onclick = () => $("imgUpload").click();
+$("imgUpload").onchange = e => {
+  for (const file of e.target.files) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const b64 = ev.target.result;
+      currentImages.push(b64.split(",")[1]);
+      const img = document.createElement("img");
+      img.src = b64;
+      img.style.cssText = "width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid #30363d;";
+      $("attachments").style.display = "flex";
+      $("attachments").appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  }
+  $("imgUpload").value = "";
+};
 $("run").onclick = runModel;
 $("del").onclick = delModel;
 $("pullBtn").onclick = pullModel;
