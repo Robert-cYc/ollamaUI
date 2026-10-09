@@ -500,6 +500,17 @@ async function send(isToolRetry = false) {
     }
     
     // 處理 Tool Calls
+    if (!toolCalls && reply && reply.trim().startsWith("{") && reply.includes("search_web")) {
+      try {
+        const parsed = JSON.parse(reply.trim());
+        if (parsed.name || (parsed.function && parsed.function.name)) {
+          toolCalls = [{ function: { name: parsed.name || parsed.function.name, arguments: parsed.parameters || parsed.arguments || parsed } }];
+          reply = "";
+          bubble.innerHTML = "*(Triggering Tool...)*";
+        }
+      } catch (e) {}
+    }
+    
     if (toolCalls && toolCalls.length > 0) {
       history.push({ role: "assistant", content: reply, tool_calls: toolCalls });
       log("INFO", "LLM called tools: " + toolCalls.map(t => t.function.name).join(", "));
@@ -513,7 +524,7 @@ async function send(isToolRetry = false) {
           log("INFO", "Tool get_system_info executed.");
         } else if (tc.function.name === "search_web") {
           try {
-            const args = JSON.parse(tc.function.arguments);
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
             log("INFO", "Searching web for: " + args.query);
             const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query));
             if (!res.ok) throw new Error("HTTP " + res.status);
@@ -526,7 +537,7 @@ async function send(isToolRetry = false) {
           }
         } else if (tc.function.name === "read_url") {
           try {
-            const args = JSON.parse(tc.function.arguments);
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
             log("INFO", "Reading URL: " + args.url);
             const res = await fetch("https://r.jina.ai/" + args.url);
             if (!res.ok) throw new Error("HTTP " + res.status);
