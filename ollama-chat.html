@@ -369,7 +369,7 @@ async function runModel() {
     log("OK", 'Model "' + name + '" resident in memory');
     psCheck();
     activeModel = name;
-    history = [{ role: "system", content: "You are a helpful AI assistant. When a user asks for news, details, or real-time information, you MUST use the `search_web` tool. Because `search_web` only returns short snippets, you MUST then use the `read_url` tool on the most relevant URL to extract the full context before answering." }];
+    history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`." }];
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
@@ -674,7 +674,7 @@ $("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullMode
 $("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
 $("send").onclick = send;
 $("clear").onclick = () => { 
-  history = [{ role: "system", content: "You are a helpful AI assistant. When a user asks for news, details, or real-time information, you MUST use the `search_web` tool. Because `search_web` only returns short snippets, you MUST then use the `read_url` tool on the most relevant URL to extract the full context before answering." }];
+  history = [{ role: "system", content: "You are a helpful AI assistant with access to tools. Follow these rules strictly:\n1. For local computer hardware (CPU/GPU load, temperature, RAM), use `get_hardware_status`.\n2. For news or web information, use `get_news` or `search_web`. For web searches, ALWAYS follow up with `read_url` to get full context.\n3. For static system specs (OS, computer name), use `get_system_info`." }];
   $("chat").innerHTML = '<div class="empty">History cleared.</div>'; 
   log("INFO", "Chat history cleared"); 
 };
