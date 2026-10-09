@@ -168,6 +168,7 @@ ollama serve</pre>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
 let activeModel = null, history = [], busy = false, autoScroll = true, currentImages = [];
+const hwTrend = [];
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
@@ -447,7 +448,7 @@ async function send(isToolRetry = false) {
       type: "function",
       function: {
         name: "get_hardware_status",
-        description: "Get real-time hardware status including CPU/GPU temperatures, loads, fan speeds, and memory usage via Libre Hardware Monitor API."
+        description: "Get real-time hardware status including CPU/GPU temperatures, loads, and memory usage via Libre Hardware Monitor API. Also includes a 5-minute historical trend for CPU/GPU/RAM."
       }
     }
   ];
@@ -554,6 +555,15 @@ async function send(isToolRetry = false) {
                 }
             }
             parseLHM(hwData);
+            
+            if (hwTrend.length > 0) {
+              summary += "\n--- 5-Minute Historical Trend ---\n";
+              const step = Math.max(1, Math.floor(hwTrend.length / 15));
+              for (let i = 0; i < hwTrend.length; i += step) {
+                const pt = hwTrend[i];
+                summary += `[${new Date(pt.t).toLocaleTimeString()}] CPU: ${pt.cpu}%, GPU: ${pt.gpu}%, RAM: ${pt.ram}%\n`;
+              }
+            }
             
             const finalData = summary ? summary.substring(0, 4000) : "No hardware data found.";
             history.push({ role: "tool", content: finalData });
@@ -705,6 +715,12 @@ async function updateHardwareStatus() {
     setVal("hwCpu", cpu);
     setVal("hwGpu", gpu);
     setVal("hwRam", ram);
+    
+    const c = parseFloat(cpu), g = parseFloat(gpu), r = parseFloat(ram);
+    if (!isNaN(c)) {
+      hwTrend.push({ t: Date.now(), cpu: c, gpu: g, ram: r });
+      if (hwTrend.length > 150) hwTrend.shift(); // 150 * 2s = 300s (5 minutes)
+    }
   } catch (e) {}
 }
 setInterval(updateHardwareStatus, 2000);
