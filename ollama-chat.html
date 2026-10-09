@@ -412,6 +412,22 @@ async function send(isToolRetry = false) {
     {
       type: "function",
       function: {
+        name: "search_web",
+        description: "Search the web for information using DuckDuckGo. Use this to find current events or lookup facts.",
+        parameters: { type: "object", properties: { query: { type: "string", description: "The search query" } }, required: ["query"] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "read_url",
+        description: "Read the content of a specific URL and extract the text. Use this after a search to read the full article.",
+        parameters: { type: "object", properties: { url: { type: "string", description: "The URL of the webpage to read" } }, required: ["url"] }
+      }
+    },
+    {
+      type: "function",
+      function: {
         name: "get_system_info",
         description: "Get the local computer's static system specifications like OS, RAM, and computer name."
       }
@@ -483,6 +499,32 @@ async function send(isToolRetry = false) {
             : "Error: sysinfo.js not found. Please run start.bat to generate system info.";
           history.push({ role: "tool", content: sysInfo });
           log("INFO", "Tool get_system_info executed.");
+        } else if (tc.function.name === "search_web") {
+          try {
+            const args = JSON.parse(tc.function.arguments);
+            log("INFO", "Searching web for: " + args.query);
+            const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query));
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.text();
+            history.push({ role: "tool", content: data.substring(0, 4000) });
+            log("OK", "Tool search_web executed.");
+          } catch (err) {
+            log("ERROR", "Search failed: " + err.message);
+            history.push({ role: "tool", content: "Error: " + err.message });
+          }
+        } else if (tc.function.name === "read_url") {
+          try {
+            const args = JSON.parse(tc.function.arguments);
+            log("INFO", "Reading URL: " + args.url);
+            const res = await fetch("https://r.jina.ai/" + args.url);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.text();
+            history.push({ role: "tool", content: data.substring(0, 8000) });
+            log("OK", "Tool read_url executed.");
+          } catch (err) {
+            log("ERROR", "Read URL failed: " + err.message);
+            history.push({ role: "tool", content: "Error: " + err.message });
+          }
         } else if (tc.function.name === "get_hardware_status") {
           try {
             log("INFO", "Fetching LHM API (localhost:8085)...");
