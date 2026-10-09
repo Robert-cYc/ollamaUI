@@ -601,7 +601,14 @@ async function send(isToolRetry = false) {
   } finally {
     if (!toolCalls || toolCalls.length === 0) {
       bubble.classList.remove("cursor");
-      busy = false; $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
+      busy = false; $("send").disabled = false; 
+      if ($("micBtn")) {
+        $("micBtn").disabled = false;
+        if (typeof autoMic !== "undefined" && autoMic && typeof recognition !== "undefined" && !isRecording) {
+          try { recognition.start(); } catch (e) {}
+        }
+      }
+      $("input").focus();
     }
   }
 }
@@ -624,7 +631,7 @@ function md(t) {
 }
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null, isRecording = false, originalText = "";
+let recognition = null, isRecording = false, originalText = "", autoMic = false;
 if (SpeechRecognition) {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
@@ -632,8 +639,13 @@ if (SpeechRecognition) {
   $("micBtn").style.display = "inline-block";
   
   $("micBtn").onclick = () => {
-    if (isRecording) recognition.stop();
-    else recognition.start();
+    if (isRecording) {
+      autoMic = false;
+      recognition.stop();
+    } else {
+      autoMic = true;
+      recognition.start();
+    }
   };
   
   let isVoiceSending = false;
