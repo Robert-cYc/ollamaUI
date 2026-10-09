@@ -18,7 +18,8 @@
   button:disabled { opacity: .45; cursor: not-allowed; }
   .primary { background: #238636; border-color: #2ea043; }
   .primary:hover:not(:disabled) { background: #2ea043; }
-  .danger:hover:not(:disabled) { background: #6e2429; }
+  .danger { background: #da3633; color: #fff; border-color: #b32d2a; }
+  .danger:hover:not(:disabled) { background: #b32d2a; }
   .sep { width: 1px; height: 24px; background: #30363d; margin: 0 4px; }
   .spacer { margin-left: auto; }
   #pullName { width: 180px; }
@@ -392,7 +393,7 @@ async function runModel() {
     $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
     setStatus("running: " + name, "on");
     
-    $("run").textContent = "Stop"; $("run").className = "danger";
+    $("run").textContent = "Stop Model"; $("run").className = "danger";
   } catch (e) {
     log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
   } finally { $("run").disabled = false; }
