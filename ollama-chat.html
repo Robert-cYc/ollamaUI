@@ -477,7 +477,7 @@ async function send(isToolRetry = false) {
   try {
     const res = await fetch(HOST + "/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools })
+      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools, options: { temperature: 0.2 } })
     });
     if (!res.ok) throw new Error(res.status + " " + await res.text());
     log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
