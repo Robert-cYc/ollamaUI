@@ -58,8 +58,11 @@
     padding: 10px 14px; border-radius: 12px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
   .user .bubble { background: #161b22; border: 1px solid #30363d; border-top-right-radius: 4px; }
   .bot .bubble { background: #0d1117; border: 1px solid #21262d; border-top-left-radius: 4px; }
-  .bubble pre { background: #161b22; border: 1px solid #30363d; padding: 11px;
-    border-radius: 6px; overflow-x: auto; margin: 7px 0; }
+  .code-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin: 7px 0; overflow: hidden; }
+  .code-head { display: flex; justify-content: space-between; padding: 4px 11px; background: #0d1117; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e; font-family: ui-monospace, monospace; }
+  .code-copy { background: none; border: none; color: #8b949e; cursor: pointer; font-size: 11px; transition: color 0.15s; }
+  .code-copy:hover { color: #e6edf3; }
+  .bubble pre { padding: 11px; margin: 0; overflow-x: auto; }
   .bubble code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
   .bubble pre code { background: none; padding: 0; }
   .meta { font-size: 11px; color: #7d8590; margin-top: 6px; font-family: ui-monospace, monospace; }
@@ -653,7 +656,9 @@ function addMsg(role, text) {
 }
 function md(t) {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/```(\w*)\n([\s\S]*?)```/g, function (_, l, c) { return "<pre><code>" + c + "</code></pre>"; })
+    .replace(/```(\w*)\n([\s\S]*?)```/g, function (_, l, c) { 
+      return `<div class="code-box"><div class="code-head"><span>${l||'code'}</span><button class="code-copy" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',2000)">Copy</button></div><pre><code>${c}</code></pre></div>`; 
+    })
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
 }
