@@ -81,6 +81,8 @@
   #input:focus { outline: none; border-color: #58a6ff; }
   .cursor::after { content: "\258A"; animation: blink 1s steps(2) infinite; }
   @keyframes blink { 0%,50%{opacity:1} 50.1%,100%{opacity:0} }
+  .recording { animation: pulse 1s infinite; color: #ff7b72 !important; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
   #setupOverlay { display:none; position:fixed; inset:0; background:rgba(1,4,9,.94);
     z-index:999; place-items:center; }
   #setupOverlay .card { max-width:640px; padding:28px 32px; background:#161b22;
@@ -130,6 +132,7 @@
       <div class="composer">
         <input type="file" id="imgUpload" accept="image/png, image/jpeg, image/webp" style="display:none" multiple>
         <button id="attachBtn" title="Attach Image" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e;">&#128444;</button>
+        <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127892;</button>
         <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
         <button id="send" class="primary" disabled>Send</button>
       </div>
@@ -195,12 +198,11 @@ function log(level, msg, force = false) {
   row.querySelector(".t").textContent = t;
   row.querySelector(".lv").textContent = level;
   row.querySelector(".m").textContent = msg;
-  $("logs").appendChild(row);
-  if (autoScroll) $("logs").scrollTop = $("logs").scrollHeight;
+  $("logs").prepend(row);
+  if (autoScroll) $("logs").scrollTop = 0;
 }
 $("logs").addEventListener("scroll", () => {
-  const el = $("logs");
-  autoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  autoScroll = $("logs").scrollTop < 40;
 });
 
 async function loadModels(quiet) {
@@ -374,7 +376,7 @@ async function runModel() {
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
-    $("send").disabled = false; $("attachBtn").disabled = false; $("input").focus();
+    $("send").disabled = false; $("attachBtn").disabled = false; $("micBtn").disabled = false; $("input").focus();
     setStatus("running: " + name, "on");
   } catch (e) {
     log("ERROR", "Load failed: " + e.message); setStatus("load failed", "off");
@@ -398,7 +400,7 @@ async function send(isToolRetry = false) {
   if (!isToolRetry) {
     const text = $("input").value.trim();
     if ((!text && currentImages.length === 0) || busy || !activeModel) return;
-    busy = true; $("send").disabled = true; $("attachBtn").disabled = true;
+    busy = true; $("send").disabled = true; $("attachBtn").disabled = true; $("micBtn").disabled = true;
     $("input").value = ""; $("input").style.height = "auto";
     const uiText = text + (currentImages.length ? `\n\n*[Attached ${currentImages.length} image(s)]*` : "");
     addMsg("user", uiText);
@@ -549,15 +551,18 @@ async function send(isToolRetry = false) {
     }
     
     // 處理 Tool Calls
-    if (!toolCalls && reply && reply.trim().startsWith("{") && reply.includes("search_web")) {
-      try {
-        const parsed = JSON.parse(reply.trim());
-        if (parsed.name || (parsed.function && parsed.function.name)) {
-          toolCalls = [{ function: { name: parsed.name || parsed.function.name, arguments: parsed.parameters || parsed.arguments || parsed } }];
-          reply = "";
-          bubble.innerHTML = "*(Triggering Tool...)*";
-        }
-      } catch (e) {}
+    if (!toolCalls && reply && reply.includes("{") && reply.includes("}")) {
+      const match = reply.match(/\{[\s\S]*"name"\s*:\s*"[^"]+"[\s\S]*\}/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[0]);
+          if (parsed.name || (parsed.function && parsed.function.name)) {
+            toolCalls = [{ function: { name: parsed.name || parsed.function.name, arguments: parsed.parameters || parsed.arguments || parsed } }];
+            reply = reply.replace(match[0], "").trim();
+            bubble.innerHTML = md(reply) + (reply ? "<br>" : "") + "*(Triggering Tool...)*";
+          }
+        } catch (e) {}
+      }
     }
     
     if (toolCalls && toolCalls.length > 0) {
@@ -573,9 +578,10 @@ async function send(isToolRetry = false) {
           log("INFO", "Tool get_system_info executed.");
         } else if (tc.function.name === "search_web") {
           try {
-            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
-            log("INFO", "Searching web for: " + args.query);
-            const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query));
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const q = args.query || args.q;
+            log("INFO", "Searching web for: " + q);
+            const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(q));
             if (!res.ok) throw new Error("HTTP " + res.status);
             let data = await res.text();
             // Decode duckduckgo redirect URLs so the LLM gets clean URLs
@@ -602,7 +608,7 @@ async function send(isToolRetry = false) {
         } else if (tc.function.name === "get_news") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            const q = args.query || "";
+            const q = args.query || args.q || "";
             log("INFO", "Fetching news for: " + (q || "top stories"));
             const url = q ? "https://news.google.com/rss/search?q=" + encodeURIComponent(q) : "https://news.google.com/rss";
             const res = await fetch("https://r.jina.ai/" + url);
@@ -726,7 +732,7 @@ async function send(isToolRetry = false) {
   } finally {
     if (!toolCalls || toolCalls.length === 0) {
       bubble.classList.remove("cursor");
-      busy = false; $("send").disabled = false; $("attachBtn").disabled = false; $("input").focus();
+      busy = false; $("send").disabled = false; $("attachBtn").disabled = false; $("micBtn").disabled = false; $("input").focus();
     }
   }
 }
@@ -746,6 +752,44 @@ function md(t) {
     .replace(/```(\w*)\n([\s\S]*?)```/g, function (_, l, c) { return "<pre><code>" + c + "</code></pre>"; })
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null, isRecording = false, originalText = "";
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  $("micBtn").style.display = "inline-block";
+  
+  $("micBtn").onclick = () => {
+    if (isRecording) recognition.stop();
+    else recognition.start();
+  };
+  
+  recognition.onstart = () => {
+    isRecording = true;
+    $("micBtn").classList.add("recording");
+    originalText = $("input").value + ($("input").value && !$("input").value.endsWith(" ") ? " " : "");
+  };
+  
+  recognition.onresult = (e) => {
+    let transcript = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+    $("input").value = originalText + transcript;
+    $("input").dispatchEvent(new Event("input"));
+  };
+  
+  recognition.onend = () => {
+    isRecording = false;
+    $("micBtn").classList.remove("recording");
+  };
+  
+  recognition.onerror = (e) => {
+    log("ERROR", "Speech error: " + e.error);
+    isRecording = false;
+    $("micBtn").classList.remove("recording");
+  };
 }
 
 $("attachBtn").onclick = () => $("imgUpload").click();
