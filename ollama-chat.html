@@ -111,9 +111,6 @@
   </datalist>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
-  <span class="spacer"></span>
-  <button id="clear">Clear Chat</button>
-  <button id="toggleLog">Hide Logs</button>
 </header>
 
 <main>
@@ -133,6 +130,7 @@
       <label style="font-weight:400;font-size:11px;margin-left:auto;">
         <input type="checkbox" id="verbose"> verbose
       </label>
+      <button id="clear">Clear Chat</button>
       <button id="clearLog">clear</button>
       <button id="copyLog">copy</button>
     </div>
@@ -654,10 +652,6 @@ $("clearLog").onclick = () => $("logs").innerHTML = "";
 $("copyLog").onclick = () => {
   navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
   log("OK", "Logs copied to clipboard");
-};
-$("toggleLog").onclick = e => {
-  $("logPane").classList.toggle("hidden");
-  e.target.textContent = $("logPane").classList.contains("hidden") ? "Show Logs" : "Hide Logs";
 };
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("input").addEventListener("input", e => {
