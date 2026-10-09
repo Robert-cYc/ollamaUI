@@ -10,7 +10,7 @@ Registered Owner:              robertcyc@outlook.com
 Registered Organization:       N/A
 Product ID:                    00330-80000-00000-AA210
 Original Install Date:         2026/5/29, ?? 09:36:18
-System Boot Time:              2026/10/9, ?? 08:20:45
+System Boot Time:              2026/10/9, ?? 11:52:27
 System Manufacturer:           Acer
 System Model:                  Predator PTN16-51
 System Type:                   x64-based PC
@@ -24,10 +24,10 @@ System Locale:                 en-us;English (United States)
 Input Locale:                  zh-tw;Chinese (Taiwan)
 Time Zone:                     (UTC+08:00) Taipei
 Total Physical Memory:         32,253 MB
-Available Physical Memory:     13,360 MB
+Available Physical Memory:     14,964 MB
 Virtual Memory: Max Size:      48,637 MB
-Virtual Memory: Available:     27,027 MB
-Virtual Memory: In Use:        21,610 MB
+Virtual Memory: Available:     29,072 MB
+Virtual Memory: In Use:        19,565 MB
 Page File Location(s):         C:\pagefile.sys
 Domain:                        WORKGROUP
 Logon Server:                  \\ROBERT

@@ -111,14 +111,15 @@
   </datalist>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
-  <span id="hwMonitor" style="margin-left: 12px; font-size: 13px; background: #21262d; border-radius: 6px; padding: 5px 10px; font-family: ui-monospace, monospace; color: #8b949e; display: flex; gap: 12px; border: 1px solid #30363d; cursor: default;" title="Hardware Status (via localhost:8085)">
-    <span>CPU <b id="hwCpu" style="color: #c9d1d9">--</b></span>
-    <span>GPU <b id="hwGpu" style="color: #c9d1d9">--</b></span>
-    <span>RAM <b id="hwRam" style="color: #c9d1d9">--</b></span>
+  <span id="hwMonitor" style="margin-left: 12px; font-size: 13px; background: lightblue; border-radius: 6px; padding: 5px 10px; font-family: ui-monospace, monospace; color: #1f2328; display: flex; gap: 12px; border: 1px solid #7cb5cc; cursor: default;" title="Hardware Status (via localhost:8085)">
+    <span>CPU <b id="hwCpu" style="color: #111">--</b></span>
+    <span>GPU <b id="hwGpu" style="color: #111">--</b></span>
+    <span>VRAM <b id="hwVRam" style="color: #111">--</b></span>
+    <span>RAM <b id="hwRam" style="color: #111">--</b></span>
+    <span style="color: #4b5563; border-left: 1px solid #7cb5cc; padding-left: 12px;">5m Avg: CPU <b id="avgCpu" style="color: #111">--</b> VRAM <b id="avgVRam" style="color: #111">--</b></span>
   </span>
   <span class="spacer"></span>
   <button id="clear">Clear Chat</button>
-  <button id="toggleLog">Hide Logs</button>
 </header>
 
 <main>
@@ -637,7 +638,7 @@ async function send(isToolRetry = false) {
               const step = Math.max(1, Math.floor(hwTrend.length / 15));
               for (let i = 0; i < hwTrend.length; i += step) {
                 const pt = hwTrend[i];
-                summary += `[${new Date(pt.t).toLocaleTimeString()}] CPU: ${pt.cpu}% (${pt.cpuT}°C), GPU: ${pt.gpu}% (${pt.gpuT}°C), RAM: ${pt.ram}%\n`;
+                summary += `[${new Date(pt.t).toLocaleTimeString()}] CPU: ${pt.cpu}% (${pt.cpuT}°C), GPU: ${pt.gpu}% (${pt.gpuT}°C), VRAM: ${pt.vram}%, RAM: ${pt.ram}%\n`;
               }
             }
             
@@ -781,10 +782,6 @@ $("copyLog").onclick = () => {
   navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
   log("OK", "Logs copied to clipboard");
 };
-$("toggleLog").onclick = e => {
-  $("logPane").classList.toggle("hidden");
-  e.target.textContent = $("logPane").classList.contains("hidden") ? "Show Logs" : "Hide Logs";
-};
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("input").addEventListener("input", e => {
   e.target.style.height = "auto";
@@ -831,14 +828,15 @@ async function updateHardwareStatus() {
     const res = await fetch("http://localhost:8085/data.json");
     if (!res.ok) return;
     const data = await res.json();
-    let cpu = "--", gpu = "--", ram = "--";
+    let cpu = "--", gpu = "--", ram = "--", vram = "--";
     let cpuTemp = "--", gpuTemp = "--";
-    let memFound = false, gpuFound = false, gpuTempFound = false;
+    let memFound = false, gpuFound = false, gpuTempFound = false, vramFound = false;
     function findValues(node) {
       if (node.Text && node.Value) {
         if (node.Text === "CPU Total" && node.Value.includes("%")) cpu = node.Value.replace(/\s/g, "");
         if (!memFound && node.Text === "Memory" && node.Value.includes("%")) { ram = node.Value.replace(/\s/g, ""); memFound = true; }
         if (!gpuFound && node.Text === "GPU Core" && node.Value.includes("%")) { gpu = node.Value.replace(/\s/g, ""); gpuFound = true; }
+        if (!vramFound && (node.Text === "GPU Memory" || node.Text.includes("VRAM")) && node.Value.includes("%")) { vram = node.Value.replace(/\s/g, ""); vramFound = true; }
         if (node.Text === "CPU Package" && node.Value.includes("°C")) cpuTemp = node.Value.replace(/\s/g, "");
         if (!gpuTempFound && node.Text === "GPU Core" && node.Value.includes("°C")) { gpuTemp = node.Value.replace(/\s/g, ""); gpuTempFound = true; }
       }
@@ -849,20 +847,29 @@ async function updateHardwareStatus() {
       const el = $(id);
       el.textContent = val;
       const num = parseFloat(val);
-      if (isNaN(num)) el.style.color = "#c9d1d9";
-      else if (num >= 90) el.style.color = "#ff7b72"; // red
-      else if (num >= 80) el.style.color = "#d29922"; // yellow
-      else el.style.color = "#c9d1d9";
+      if (isNaN(num)) el.style.color = "#111";
+      else if (num >= 90) el.style.color = "#d73a49"; // red (darker for light bg)
+      else if (num >= 80) el.style.color = "#b08800"; // yellow/orange
+      else el.style.color = "#111";
     };
     setVal("hwCpu", cpu + (cpuTemp !== "--" ? ` (${cpuTemp})` : ""));
     setVal("hwGpu", gpu + (gpuTemp !== "--" ? ` (${gpuTemp})` : ""));
+    setVal("hwVRam", vram);
     setVal("hwRam", ram);
     
-    const c = parseFloat(cpu), g = parseFloat(gpu), r = parseFloat(ram);
+    const c = parseFloat(cpu), g = parseFloat(gpu), r = parseFloat(ram), vr = parseFloat(vram);
     const ct = parseFloat(cpuTemp), gt = parseFloat(gpuTemp);
     if (!isNaN(c)) {
-      hwTrend.push({ t: Date.now(), cpu: c, gpu: g, ram: r, cpuT: isNaN(ct) ? 0 : ct, gpuT: isNaN(gt) ? 0 : gt });
+      hwTrend.push({ t: Date.now(), cpu: c, gpu: g, ram: r, vram: isNaN(vr) ? 0 : vr, cpuT: isNaN(ct) ? 0 : ct, gpuT: isNaN(gt) ? 0 : gt });
       if (hwTrend.length > 150) hwTrend.shift(); // 150 * 2s = 300s (5 minutes)
+      
+      let sumCpu = 0, sumVram = 0, countCpu = 0, countVram = 0;
+      for (const pt of hwTrend) {
+        if (!isNaN(pt.cpu)) { sumCpu += pt.cpu; countCpu++; }
+        if (!isNaN(pt.vram)) { sumVram += pt.vram; countVram++; }
+      }
+      if (countCpu > 0) $("avgCpu").textContent = (sumCpu / countCpu).toFixed(1) + "%";
+      if (countVram > 0) $("avgVRam").textContent = (sumVram / countVram).toFixed(1) + "%";
     }
   } catch (e) {}
 }
