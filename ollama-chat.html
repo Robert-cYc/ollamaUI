@@ -540,13 +540,13 @@ async function send(isToolRetry = false) {
           } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_hardware_status") {
           try {
-            let content = "Current Hardware Status (CPU/GPU/RAM usage %):\n";
+            let content = "Current Hardware Status:\n";
             if (typeof hwTrend !== "undefined" && hwTrend.length > 0) {
               const last = hwTrend[hwTrend.length - 1];
-              content += `Time: ${last.time}, CPU: ${last.cpu}%, GPU: ${last.gpu}%, RAM: ${last.ram}%\n`;
+              content += `Time: ${last.time}, CPU: ${last.cpu}% (${last.cpuTemp}°C), GPU: ${last.gpu}% (${last.gpuTemp}°C), RAM: ${last.ram}%\n`;
               content += "Trend (last 5 records):\n";
               const recent = hwTrend.slice(-5);
-              recent.forEach(r => content += `[${r.time}] CPU: ${r.cpu}%, GPU: ${r.gpu}%, RAM: ${r.ram}%\n`);
+              recent.forEach(r => content += `[${r.time}] CPU: ${r.cpu}% (${r.cpuTemp}°C), GPU: ${r.gpu}% (${r.gpuTemp}°C), RAM: ${r.ram}%\n`);
             } else {
               content = "Hardware monitor data is currently unavailable.";
             }
@@ -757,21 +757,28 @@ async function updateHardwareStatus() {
     const res = await fetch("http://localhost:8085/data.json");
     if (!res.ok) return;
     const data = await res.json();
-    let cpu = "--", gpu = "--", ram = "--";
+    let cpu = "--", gpu = "--", ram = "--", cpuTemp = "--", gpuTemp = "--";
     
     function findNode(node) {
       if ((node.Text === "CPU Total" || node.Text === "CPU Core") && node.Value && node.Value.includes("%")) cpu = parseFloat(node.Value).toFixed(1);
       if ((node.Text === "GPU Core" || node.Text === "GPU Core 3D") && node.Value && node.Value.includes("%")) gpu = parseFloat(node.Value).toFixed(1);
       if (node.Text === "Memory" && node.Value && node.Value.includes("%")) ram = parseFloat(node.Value).toFixed(1);
+      
+      if ((node.Text === "CPU Package" || node.Text === "CPU Core" || node.Text === "Core Average") && node.Value && node.Value.includes("°C")) {
+         if (cpuTemp === "--") cpuTemp = parseFloat(node.Value).toFixed(1);
+      }
+      if ((node.Text === "GPU Core" || node.Text === "GPU Hot Spot" || node.Text === "GPU") && node.Value && node.Value.includes("°C")) {
+         if (gpuTemp === "--") gpuTemp = parseFloat(node.Value).toFixed(1);
+      }
       if (node.Children) node.Children.forEach(findNode);
     }
     findNode(data);
     
-    if (cpu !== "--") $("hwCpu").textContent = cpu.padStart(4, " ") + "%";
-    if (gpu !== "--") $("hwGpu").textContent = gpu.padStart(4, " ") + "%";
+    if (cpu !== "--") $("hwCpu").textContent = cpu.padStart(4, " ") + "%" + (cpuTemp !== "--" ? ` ${cpuTemp}°C` : "");
+    if (gpu !== "--") $("hwGpu").textContent = gpu.padStart(4, " ") + "%" + (gpuTemp !== "--" ? ` ${gpuTemp}°C` : "");
     if (ram !== "--") $("hwRam").textContent = ram.padStart(4, " ") + "%";
     
-    hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram });
+    hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram, cpuTemp, gpuTemp });
     if (hwTrend.length > 300) hwTrend.shift();
   } catch (e) {
     // Silently fail if LibreHardwareMonitor is not running
