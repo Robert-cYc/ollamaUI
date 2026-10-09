@@ -637,16 +637,19 @@ if (SpeechRecognition) {
   };
   
   let isVoiceSending = false;
+  let autoSendTimer = null;
 
   recognition.onstart = () => {
     isRecording = true;
     isVoiceSending = false;
+    if (autoSendTimer) clearTimeout(autoSendTimer);
     $("micBtn").classList.add("recording");
     originalText = $("input").value + ($("input").value && !$("input").value.endsWith(" ") ? " " : "");
   };
   
   recognition.onresult = (e) => {
     if (isVoiceSending) return;
+    if (autoSendTimer) clearTimeout(autoSendTimer);
 
     let transcript = "";
     for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
@@ -664,11 +667,20 @@ if (SpeechRecognition) {
     if (isSend) {
       recognition.stop();
       setTimeout(send, 100);
+    } else if (transcript.trim()) {
+      autoSendTimer = setTimeout(() => {
+        if (!isVoiceSending && $("input").value.trim() !== "") {
+          isVoiceSending = true;
+          recognition.stop();
+          send();
+        }
+      }, 1000);
     }
   };
   
   recognition.onend = () => {
     isRecording = false;
+    if (autoSendTimer) clearTimeout(autoSendTimer);
     $("micBtn").classList.remove("recording");
   };
   
