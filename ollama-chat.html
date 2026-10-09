@@ -801,8 +801,22 @@ async function updateHardwareStatus() {
     }
     findNode(data);
     
-    if (cpu !== "--") $("hwCpu").textContent = cpu.padStart(4, " ") + "%" + (cpuTemp !== "--" ? ` ${cpuTemp}°C` : "");
-    if (gpu !== "--") $("hwGpu").textContent = gpu.padStart(4, " ") + "%" + (gpuTemp !== "--" ? ` ${gpuTemp}°C` : "");
+    function getColor(val) {
+      const v = parseFloat(val);
+      if (isNaN(v)) return "#e6edf3";
+      if (v >= 90) return "#ff7b72";
+      if (v >= 80) return "#d29922";
+      return "#e6edf3";
+    }
+    
+    if (cpu !== "--") {
+      $("hwCpu").textContent = cpu.padStart(4, " ") + "%" + (cpuTemp !== "--" ? ` ${cpuTemp}°C` : "");
+      $("hwCpu").style.color = getColor(cpu);
+    }
+    if (gpu !== "--") {
+      $("hwGpu").textContent = gpu.padStart(4, " ") + "%" + (gpuTemp !== "--" ? ` ${gpuTemp}°C` : "");
+      $("hwGpu").style.color = getColor(gpu);
+    }
     if (ram !== "--") $("hwRam").textContent = ram.padStart(4, " ") + "%";
     
     hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram, cpuTemp, gpuTemp });
