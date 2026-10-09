@@ -546,29 +546,29 @@ async function send(isToolRetry = false) {
       for (const tc of toolCalls) {
         if (tc.function.name === "get_system_info") {
           const sysInfo = typeof window.sysinfo_data !== "undefined" ? window.sysinfo_data : "Error: sysinfo.js not found.";
-          history.push({ role: "tool", content: sysInfo });
+          history.push({ role: "tool", name: tc.function.name, content: sysInfo });
         } else if (tc.function.name === "search_web") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
             const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query || args.q));
             let data = await res.text();
             data = data.replace(/https:\/\/duckduckgo\.com\/l\/\?uddg=([^&]+)(?:&[^)\s\]'"]*)?/g, (m, p1) => decodeURIComponent(p1));
-            history.push({ role: "tool", content: data.substring(0, 4000) });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: data.substring(0, 4000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "read_url") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
             const res = await fetch("https://r.jina.ai/" + args.url);
-            history.push({ role: "tool", content: (await res.text()).substring(0, 8000) });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: (await res.text()).substring(0, 8000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_news") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
             const q = args.query || args.q || "";
             const url = q ? "https://news.google.com/rss/search?q=" + encodeURIComponent(q) : "https://news.google.com/rss";
             const res = await fetch("https://r.jina.ai/" + url);
-            history.push({ role: "tool", content: (await res.text()).substring(0, 4000) });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: (await res.text()).substring(0, 4000) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_hardware_status") {
           try {
             let content = "Current Hardware Status:\n";
@@ -581,29 +581,29 @@ async function send(isToolRetry = false) {
             } else {
               content = "Hardware monitor data is currently unavailable.";
             }
-            history.push({ role: "tool", content: content });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: content });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_current_time") {
           const d = new Date();
-          history.push({ role: "tool", content: `Date: ${d.toLocaleString()}\nTZ: ${Intl.DateTimeFormat().resolvedOptions().timeZone}` });
+          history.push({ role: "tool", name: tc.function.name, content: `Date: ${d.toLocaleString()}\nTZ: ${Intl.DateTimeFormat().resolvedOptions().timeZone}` });
         } else if (tc.function.name === "calculator") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            history.push({ role: "tool", content: `Result = ${new Function('return ' + args.expression)()}` });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: `Result = ${new Function('return ' + args.expression)()}` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_crypto_price") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
             const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${args.coin_id}&vs_currencies=usd,twd&include_24hr_change=true`);
-            history.push({ role: "tool", content: JSON.stringify(await res.json()) });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: JSON.stringify(await res.json()) });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "search_wikipedia") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
             const res = await fetch(`https://${args.lang || "zh"}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(args.query)}`);
             const data = await res.json();
-            history.push({ role: "tool", content: `Title: ${data.title}\nSummary: ${data.extract}` });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: `Title: ${data.title}\nSummary: ${data.extract}` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_weather") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
@@ -613,8 +613,8 @@ async function send(isToolRetry = false) {
             const { latitude, longitude, name, country } = geoData.results[0];
             const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
             const weatherData = await weatherRes.json();
-            history.push({ role: "tool", content: `Loc: ${name}, ${country}\nCur: ${weatherData.current.temperature_2m}°C, Hum ${weatherData.current.relative_humidity_2m}%\nMax/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C` });
-          } catch (err) { history.push({ role: "tool", content: "Error: " + err.message }); }
+            history.push({ role: "tool", name: tc.function.name, content: `Loc: ${name}, ${country}\nCur: ${weatherData.current.temperature_2m}°C, Hum ${weatherData.current.relative_humidity_2m}%\nMax/Min: ${weatherData.daily.temperature_2m_max[0]}°C / ${weatherData.daily.temperature_2m_min[0]}°C` });
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         }
       }
       
