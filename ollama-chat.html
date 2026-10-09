@@ -529,7 +529,9 @@ async function send(isToolRetry = false) {
             log("INFO", "Searching web for: " + args.query);
             const res = await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(args.query));
             if (!res.ok) throw new Error("HTTP " + res.status);
-            const data = await res.text();
+            let data = await res.text();
+            // Decode duckduckgo redirect URLs so the LLM gets clean URLs
+            data = data.replace(/https:\/\/duckduckgo\.com\/l\/\?uddg=([^&]+)(?:&[^)\s\]'"]*)?/g, (m, p1) => decodeURIComponent(p1));
             history.push({ role: "tool", content: data.substring(0, 4000) });
             log("OK", "Tool search_web executed.");
           } catch (err) {
