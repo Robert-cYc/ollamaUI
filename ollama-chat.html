@@ -408,7 +408,14 @@ async function send(isToolRetry = false) {
       type: "function",
       function: {
         name: "get_system_info",
-        description: "Get the local computer's system specifications like OS, RAM, and computer name."
+        description: "Get the local computer's static system specifications like OS, RAM, and computer name."
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_hardware_status",
+        description: "Get real-time hardware status including CPU/GPU temperatures, loads, fan speeds, and memory usage via Libre Hardware Monitor API."
       }
     }
   ];
@@ -471,6 +478,32 @@ async function send(isToolRetry = false) {
             : "Error: sysinfo.js not found. Please run start.bat to generate system info.";
           history.push({ role: "tool", content: sysInfo });
           log("INFO", "Tool get_system_info executed.");
+        } else if (tc.function.name === "get_hardware_status") {
+          try {
+            log("INFO", "Fetching LHM API (localhost:8085)...");
+            const hwRes = await fetch("http://localhost:8085/data.json");
+            if (!hwRes.ok) throw new Error("HTTP " + hwRes.status);
+            const hwData = await hwRes.json();
+            
+            // 解析並展平 LHM 的巢狀 JSON 結構以節省 Token
+            let summary = "";
+            function parseLHM(node, indent = "") {
+                if (node.Text && node.Value) {
+                    summary += indent + node.Text + ": " + node.Value + "\n";
+                } else if (node.Text && node.Children && node.Children.length) {
+                    summary += indent + node.Text + "\n";
+                    node.Children.forEach(c => parseLHM(c, indent + "  "));
+                }
+            }
+            parseLHM(hwData);
+            
+            const finalData = summary ? summary.substring(0, 4000) : "No hardware data found.";
+            history.push({ role: "tool", content: finalData });
+            log("OK", "Tool get_hardware_status executed (fetched data.json).");
+          } catch (err) {
+            log("ERROR", "LHM API fetch failed: " + err.message);
+            history.push({ role: "tool", content: "Error fetching hardware status from http://localhost:8085/data.json. " + err.message + ". Make sure Libre Hardware Monitor web server is running." });
+          }
         }
       }
       
