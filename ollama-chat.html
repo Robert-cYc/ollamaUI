@@ -111,6 +111,11 @@
   </datalist>
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
+  <span id="hwMonitor" style="margin-left: 12px; font-size: 13px; background: #21262d; border-radius: 6px; padding: 5px 10px; font-family: ui-monospace, monospace; color: #8b949e; display: flex; gap: 12px; border: 1px solid #30363d; cursor: default;" title="Hardware Status (via localhost:8085)">
+    <span>CPU <b id="hwCpu" style="color: #c9d1d9">--</b></span>
+    <span>GPU <b id="hwGpu" style="color: #c9d1d9">--</b></span>
+    <span>RAM <b id="hwRam" style="color: #c9d1d9">--</b></span>
+  </span>
   <span class="spacer"></span>
   <button id="clear">Clear Chat</button>
   <button id="toggleLog">Hide Logs</button>
@@ -601,6 +606,30 @@ $("input").addEventListener("input", e => {
   if (location.protocol === "file:")
     log("WARN", "Opened via file:// - origin is null. Use the .bat launcher instead.");
 })();
+
+async function updateHardwareStatus() {
+  try {
+    const res = await fetch("http://localhost:8085/data.json");
+    if (!res.ok) return;
+    const data = await res.json();
+    let cpu = "--", gpu = "--", ram = "--";
+    let memFound = false, gpuFound = false;
+    function findValues(node) {
+      if (node.Text && node.Value) {
+        if (node.Text === "CPU Total" && node.Value.includes("%")) cpu = node.Value.replace(/\s/g, "");
+        if (!memFound && node.Text === "Memory" && node.Value.includes("%")) { ram = node.Value.replace(/\s/g, ""); memFound = true; }
+        if (!gpuFound && node.Text === "GPU Core" && node.Value.includes("%")) { gpu = node.Value.replace(/\s/g, ""); gpuFound = true; }
+      }
+      if (node.Children) node.Children.forEach(findValues);
+    }
+    findValues(data);
+    $("hwCpu").textContent = cpu;
+    $("hwGpu").textContent = gpu;
+    $("hwRam").textContent = ram;
+  } catch (e) {}
+}
+setInterval(updateHardwareStatus, 2000);
+updateHardwareStatus();
 
 log("INFO", "Ollama Web Chat starting...");
 log("INFO", "Host: " + HOST);
