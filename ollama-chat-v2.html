@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -150,6 +150,7 @@
     <footer>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
+        <button id="speakerBtn" title="Toggle Auto Speak" style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #7ee787;">&#128266;</button>
         <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
         <button id="send" class="primary" disabled>Send</button>
       </div>
@@ -191,6 +192,7 @@ ollama serve</pre>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
 let activeModel = null, history = [], busy = false, autoScroll = true, totalTokens = 0;
+let autoSpeak = true;
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
@@ -670,6 +672,41 @@ async function send(isToolRetry = false) {
     } else {
       history.push({ role: "assistant", content: reply });
       log("OK", "Reply complete (" + reply.length + " chars)");
+      
+      if (autoSpeak && 'speechSynthesis' in window) {
+        const textToSpeak = reply.replace(/<[^>]*>?/gm, '').replace(/[\*\#\`\_]/g, '').replace(/!\[.*?\]\(.*?\)/g, '');
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        
+        let voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) {
+            // Sometimes voices are not loaded immediately
+            window.speechSynthesis.onvoiceschanged = () => {
+                voices = window.speechSynthesis.getVoices();
+                speakWithBestVoice(utterance, voices);
+            };
+        } else {
+            speakWithBestVoice(utterance, voices);
+        }
+
+        function speakWithBestVoice(utt, availableVoices) {
+            // Filter Chinese voices
+            const zhVoices = availableVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn'));
+            
+            // Prioritize Edge/Windows "Natural" or "Online" voices which sound like real humans
+            let bestVoice = zhVoices.find(v => v.name.includes('Natural') || v.name.includes('Online'));
+            
+            // Fallback to Google or Siri voices
+            if (!bestVoice) bestVoice = zhVoices.find(v => v.name.includes('Google') || v.name.includes('Siri'));
+            
+            // Fallback to any Chinese voice
+            if (!bestVoice) bestVoice = zhVoices[0];
+            
+            if (bestVoice) utt.voice = bestVoice;
+            utt.lang = 'zh-TW';
+            utt.rate = 1.0;
+            window.speechSynthesis.speak(utt);
+        }
+      }
     }
   } catch (e) {
     bubble.textContent = "Error: " + e.message;
@@ -807,6 +844,15 @@ $("input").addEventListener("input", e => {
   e.target.style.height = "auto";
   e.target.style.height = Math.min(e.target.scrollHeight, 170) + "px";
 });
+
+if ($("speakerBtn")) {
+  $("speakerBtn").onclick = () => {
+    autoSpeak = !autoSpeak;
+    $("speakerBtn").innerHTML = autoSpeak ? '&#128266;' : '&#128263;';
+    $("speakerBtn").style.color = autoSpeak ? '#7ee787' : '#8b949e';
+    if (!autoSpeak) window.speechSynthesis.cancel();
+  };
+}
 
 (function healthWatch() {
   const ov = $("setupOverlay");
