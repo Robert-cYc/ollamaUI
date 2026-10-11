@@ -216,7 +216,7 @@
         <button id="speakerBtn" title="Toggle Auto Speak" style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #7ee787;">&#128266;</button>
         <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
         <button id="send" class="primary" disabled>Send</button>
-        <button id="stopBtn" class="danger" style="display:none;" title="Stop generation (Esc)">Stop</button>
+        <button id="stopBtn" class="danger" style="display:none;" title="中止生成 (Esc)">⏹ 中止生成 (Esc)</button>
       </div>
     </footer>
   </div>
@@ -1195,13 +1195,13 @@ $("send").onclick = () => send();
 $("stopBtn").onclick = () => {
   if (chatAbort) {
     chatAbort.abort();
-    log("WARN", "Chat generation stopped by user");
+    log("WARN", "使用者已中止生成 (Generation stopped by user)");
   }
 };
 window.addEventListener("keydown", e => {
   if (e.key === "Escape" && busy && chatAbort) {
     chatAbort.abort();
-    log("WARN", "Chat generation stopped via Escape key");
+    log("WARN", "透過 Esc 鍵中止生成 (Generation stopped via Esc)");
   }
 });
 $("clear").onclick = () => { history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }]; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
