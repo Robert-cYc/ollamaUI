@@ -262,8 +262,10 @@ ollama serve</pre>
       <div style="display:flex; align-items:center; gap:8px;">
         <div class="time-range-group">
           <button class="range-btn active" data-range="60">60s</button>
-          <button class="range-btn" data-range="120">2m</button>
           <button class="range-btn" data-range="300">5m</button>
+          <button class="range-btn" data-range="3600">1h</button>
+          <button class="range-btn" data-range="28800">8h</button>
+          <button class="range-btn" data-range="86400">24h</button>
         </div>
         <button id="closeHwModal" class="close-btn" title="Close (Esc)">✕</button>
       </div>
@@ -1279,9 +1281,20 @@ pullName.addEventListener("blur", () => suggestList.style.display = "none");
 pullName.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pullBtn").click(); });
 
 let hwTrend = [];
+try {
+  const saved = localStorage.getItem("ollama_hw_trend_v1");
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    const cutoff = Date.now() - 86400 * 1000;
+    hwTrend = parsed.filter(d => d.t && d.t >= cutoff);
+  }
+} catch (e) {}
+
 let hwDashboardOpen = false;
 let hwTimeRange = 60;
 let hwHoverIndex = null;
+let currentRenderPoints = [];
+let lastStorageSave = 0;
 
 function resizeHwCanvas() {
   const canvas = $("hwCanvas");
@@ -1294,18 +1307,52 @@ function resizeHwCanvas() {
   ctx.scale(dpr, dpr);
 }
 
+function formatTimeRangeLabel(sec) {
+  if (sec < 60) return `-${Math.round(sec)}s`;
+  if (sec < 3600) {
+    const m = sec / 60;
+    return `-${m % 1 === 0 ? m : m.toFixed(1)}m`;
+  }
+  const h = sec / 3600;
+  return `-${h % 1 === 0 ? h : h.toFixed(1)}h`;
+}
+
+function sampleDataForChart(data, maxPoints = 450) {
+  if (data.length <= maxPoints) return data;
+  const bucketSize = Math.ceil(data.length / maxPoints);
+  const sampled = [];
+  for (let i = 0; i < data.length; i += bucketSize) {
+    const chunk = data.slice(i, i + bucketSize);
+    let peak = chunk[0];
+    let maxLoad = -1;
+    for (const item of chunk) {
+      const load = (parseFloat(item.cpu) || 0) + (parseFloat(item.gpu) || 0);
+      if (load > maxLoad) { maxLoad = load; peak = item; }
+    }
+    sampled.push(peak);
+  }
+  if (sampled[sampled.length - 1] !== data[data.length - 1]) {
+    sampled.push(data[data.length - 1]);
+  }
+  return sampled;
+}
+
 function renderHwDashboard() {
   if (!hwDashboardOpen) return;
+  const now = Date.now();
   
+  // Filter data within current time range
+  let dataSlice = hwTrend.filter(d => (now - (d.t || now)) <= hwTimeRange * 1000);
+  if (!dataSlice.length && hwTrend.length) dataSlice = hwTrend.slice(-Math.min(hwTrend.length, hwTimeRange));
+
   if (hwTrend.length > 0) {
     const last = hwTrend[hwTrend.length - 1];
-    const dataSlice = hwTrend.slice(-hwTimeRange);
     
     // CPU Card
     const cpuVal = parseFloat(last.cpu) || 0;
     $("cardCpuVal").textContent = last.cpu !== "--" ? `${last.cpu}%` : "--%";
     $("cardCpuBar").style.width = `${Math.min(100, Math.max(0, cpuVal))}%`;
-    $("cardCpuTemp").textContent = last.cpuTemp !== "--" ? `${last.cpuTemp}°C` : "";
+    $("cardCpuTemp").textContent = last.cpuTemp && last.cpuTemp !== "--" ? `${last.cpuTemp}°C` : "";
     const cpuNums = dataSlice.map(d => parseFloat(d.cpu)).filter(v => !isNaN(v));
     if (cpuNums.length) {
       $("cardCpuMin").textContent = `${Math.min(...cpuNums).toFixed(1)}%`;
@@ -1317,7 +1364,7 @@ function renderHwDashboard() {
     const gpuVal = parseFloat(last.gpu) || 0;
     $("cardGpuVal").textContent = last.gpu !== "--" ? `${last.gpu}%` : "--%";
     $("cardGpuBar").style.width = `${Math.min(100, Math.max(0, gpuVal))}%`;
-    $("cardGpuTemp").textContent = last.gpuTemp !== "--" ? `${last.gpuTemp}°C` : "";
+    $("cardGpuTemp").textContent = last.gpuTemp && last.gpuTemp !== "--" ? `${last.gpuTemp}°C` : "";
     const gpuNums = dataSlice.map(d => parseFloat(d.gpu)).filter(v => !isNaN(v));
     if (gpuNums.length) {
       $("cardGpuMin").textContent = `${Math.min(...gpuNums).toFixed(1)}%`;
@@ -1369,17 +1416,27 @@ function renderHwDashboard() {
     ctx.fillText(`${yVal}%`, padLeft - 6, y);
   }
 
-  const dataSlice = hwTrend.slice(-hwTimeRange);
   if (dataSlice.length < 2) {
     ctx.fillStyle = "#6e7681";
     ctx.textAlign = "center";
     ctx.fillText("Gathering performance data...", padLeft + plotW / 2, padTop + plotH / 2);
+    currentRenderPoints = [];
     return;
   }
 
-  const n = dataSlice.length;
-  const getX = i => padLeft + (i / (hwTimeRange - 1)) * plotW;
+  const sampledData = sampleDataForChart(dataSlice, 450);
+  currentRenderPoints = [];
+
+  const getX = item => {
+    const ageSec = Math.max(0, (now - (item.t || now)) / 1000);
+    return padLeft + plotW - (Math.min(hwTimeRange, ageSec) / hwTimeRange) * plotW;
+  };
   const getY = val => padTop + plotH - (Math.min(100, Math.max(0, val)) / 100) * plotH;
+
+  sampledData.forEach(item => {
+    item._x = getX(item);
+    currentRenderPoints.push(item);
+  });
 
   const series = [
     { key: "cpu", show: $("showCpu").checked, color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
@@ -1392,9 +1449,9 @@ function renderHwDashboard() {
   series.forEach(s => {
     if (!s.show) return;
     const pts = [];
-    for (let i = 0; i < n; i++) {
-      const v = parseFloat(dataSlice[i][s.key]);
-      if (!isNaN(v)) pts.push({ x: getX(i), y: getY(v), v });
+    for (const item of sampledData) {
+      const v = parseFloat(item[s.key]);
+      if (!isNaN(v)) pts.push({ x: item._x, y: getY(v), v });
     }
     if (pts.length < 2) return;
 
@@ -1427,15 +1484,19 @@ function renderHwDashboard() {
     ctx.fill();
   });
 
+  // X-axis time labels
   ctx.fillStyle = "#6e7681";
   ctx.textAlign = "left";
-  ctx.fillText(`-${hwTimeRange}s`, padLeft, H - 8);
+  ctx.fillText(formatTimeRangeLabel(hwTimeRange), padLeft, H - 8);
+  ctx.textAlign = "center";
+  ctx.fillText(formatTimeRangeLabel(hwTimeRange / 2), padLeft + plotW / 2, H - 8);
   ctx.textAlign = "right";
   ctx.fillText("now", padLeft + plotW, H - 8);
 
-  if (hwHoverIndex !== null && hwHoverIndex >= 0 && hwHoverIndex < n) {
-    const item = dataSlice[hwHoverIndex];
-    const hoverX = getX(hwHoverIndex);
+  // Hover Crosshair & Tooltip
+  if (hwHoverIndex !== null && hwHoverIndex >= 0 && hwHoverIndex < currentRenderPoints.length) {
+    const item = currentRenderPoints[hwHoverIndex];
+    const hoverX = item._x;
 
     ctx.beginPath();
     ctx.setLineDash([3, 3]);
@@ -1447,13 +1508,14 @@ function renderHwDashboard() {
 
     const tooltip = $("hwTooltip");
     tooltip.style.display = "block";
+    const displayTime = item.dateStr || item.time;
     tooltip.innerHTML = `
-      <div style="font-weight:700; color:#c9d1d9; margin-bottom:4px; border-bottom:1px solid #30363d; padding-bottom:2px;">🕒 ${item.time}</div>
-      <div style="color:#58a6ff;">CPU: <b>${item.cpu}%</b> ${item.cpuTemp !== "--" ? `(${item.cpuTemp}°C)` : ""}</div>
-      <div style="color:#3fb950;">GPU: <b>${item.gpu}%</b> ${item.gpuTemp !== "--" ? `(${item.gpuTemp}°C)` : ""}</div>
+      <div style="font-weight:700; color:#c9d1d9; margin-bottom:4px; border-bottom:1px solid #30363d; padding-bottom:2px;">🕒 ${displayTime}</div>
+      <div style="color:#58a6ff;">CPU: <b>${item.cpu}%</b> ${item.cpuTemp && item.cpuTemp !== "--" ? `(${item.cpuTemp}°C)` : ""}</div>
+      <div style="color:#3fb950;">GPU: <b>${item.gpu}%</b> ${item.gpuTemp && item.gpuTemp !== "--" ? `(${item.gpuTemp}°C)` : ""}</div>
       <div style="color:#bc8cff;">RAM: <b>${item.ram}%</b></div>
     `;
-    const tipW = 140;
+    const tipW = 150;
     const posX = hoverX + 15 + tipW > W ? hoverX - tipW - 15 : hoverX + 15;
     tooltip.style.left = `${posX}px`;
     tooltip.style.top = `25px`;
@@ -1515,16 +1577,21 @@ $("hwCanvas").addEventListener("mousemove", e => {
   const mouseX = e.clientX - rect.left;
   const padLeft = 40, padRight = 15;
   const plotW = rect.width - padLeft - padRight;
-  const dataSlice = hwTrend.slice(-hwTimeRange);
-  if (dataSlice.length < 2) return;
+  if (!currentRenderPoints || currentRenderPoints.length < 2) return;
 
   const relX = mouseX - padLeft;
   if (relX < 0 || relX > plotW) {
     hwHoverIndex = null;
   } else {
-    const fraction = relX / plotW;
-    const idx = Math.round(fraction * (hwTimeRange - 1));
-    hwHoverIndex = Math.min(dataSlice.length - 1, Math.max(0, idx));
+    let closestIdx = 0, minDist = Infinity;
+    for (let i = 0; i < currentRenderPoints.length; i++) {
+      const dist = Math.abs(currentRenderPoints[i]._x - mouseX);
+      if (dist < minDist) {
+        minDist = dist;
+        closestIdx = i;
+      }
+    }
+    hwHoverIndex = closestIdx;
   }
   renderHwDashboard();
 });
@@ -1581,8 +1648,22 @@ async function updateHardwareStatus() {
     }
     if (ram !== "--") $("hwRam").textContent = ram.padStart(4, " ") + "%";
     
-    hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram, cpuTemp, gpuTemp });
-    if (hwTrend.length > 300) hwTrend.shift();
+    const now = Date.now();
+    const timeStr = new Date(now).toLocaleTimeString();
+    const dateStr = new Date(now).toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + " " + timeStr;
+
+    hwTrend.push({ t: now, time: timeStr, dateStr, cpu, gpu, ram, cpuTemp, gpuTemp });
+    if (hwTrend.length > 86400) hwTrend.shift();
+
+    // Persist to localStorage every 15s (1 sample per 15s keeps storage ~200KB)
+    if (now - lastStorageSave > 15000) {
+      lastStorageSave = now;
+      try {
+        const storageData = hwTrend.filter((_, idx) => idx % 15 === 0);
+        localStorage.setItem("ollama_hw_trend_v1", JSON.stringify(storageData));
+      } catch (e) {}
+    }
+
     if (hwDashboardOpen) renderHwDashboard();
   } catch (e) {
     // Silently fail if LibreHardwareMonitor is not running
