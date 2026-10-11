@@ -8,12 +8,81 @@ $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")
 try { $listener.Start() }
 catch { Write-Host "Cannot bind port $Port. Try another port or run as admin."; Start-Sleep 8; exit 1 }
+
+# Auto-start hardware telemetry SQLite logger & service
+$hwScript = Join-Path $Root "hw_logger.py"
+if (Test-Path $hwScript) {
+  try {
+    Start-Process -FilePath "python" -ArgumentList "`"$hwScript`" --serve" -WindowStyle Hidden
+    Write-Host "Hardware SQLite Telemetry service started in background (port 8086)."
+  } catch {
+    Write-Host "Note: Python hw_logger could not be auto-started: $_"
+  }
+}
+
 Write-Host "Serving $Root on http://localhost:$Port/  (close this window to stop)"
 while ($listener.IsListening) {
   try {
     $ctx = $listener.GetContext()
     $rel = [Uri]::UnescapeDataString($ctx.Request.Url.LocalPath.TrimStart('/'))
+
+    # CORS Preflight
+    if ($ctx.Request.HttpMethod -eq "OPTIONS") {
+      $ctx.Response.StatusCode = 204
+      $ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*")
+      $ctx.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+      $ctx.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Accept, Range")
+      $ctx.Response.Close()
+      continue
+    }
+
+    # Hardware Telemetry API proxy / fallback
+    if ($ctx.Request.Url.LocalPath.StartsWith("/api/hardware")) {
+      $ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*")
+      $handled = $false
+      try {
+        $targetUrl = "http://127.0.0.1:8086" + $ctx.Request.RawUrl
+        $hwReq = [System.Net.HttpWebRequest]::Create($targetUrl)
+        $hwReq.Method = $ctx.Request.HttpMethod
+        $hwReq.Timeout = 3000
+        if ($ctx.Request.HttpMethod -eq "POST" -and $ctx.Request.HasEntityBody) {
+          $ctx.Request.InputStream.CopyTo($hwReq.GetRequestStream())
+        }
+        $hwResp = $hwReq.GetResponse()
+        $ctx.Response.ContentType = $hwResp.ContentType
+        $ctx.Response.StatusCode = [int]$hwResp.StatusCode
+        $hwResp.GetResponseStream().CopyTo($ctx.Response.OutputStream)
+        $hwResp.Close()
+        $handled = $true
+      } catch {
+        # Fallback to direct Python CLI query if service is not yet responding
+        try {
+          if ($ctx.Request.HttpMethod -eq "GET") {
+            $rangeVal = $ctx.Request.QueryString["range"]
+            if ([string]::IsNullOrWhiteSpace($rangeVal)) { $rangeVal = "3600" }
+            $maxPts = $ctx.Request.QueryString["maxPoints"]
+            if ([string]::IsNullOrWhiteSpace($maxPts)) { $maxPts = "500" }
+            $outJson = & python (Join-Path $Root "hw_logger.py") --query ([int]$rangeVal) --max-points ([int]$maxPts) | Out-String
+            $b = [Text.Encoding]::UTF8.GetBytes($outJson)
+            $ctx.Response.ContentType = "application/json; charset=utf-8"
+            $ctx.Response.ContentLength64 = $b.Length
+            $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+            $handled = $true
+          }
+        } catch { }
+      }
+      if (-not $handled) {
+        $b = [Text.Encoding]::UTF8.GetBytes('{"status":"unavailable"}')
+        $ctx.Response.ContentType = "application/json; charset=utf-8"
+        $ctx.Response.ContentLength64 = $b.Length
+        $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+      }
+      $ctx.Response.Close()
+      continue
+    }
+
     if ($ctx.Request.Url.LocalPath -eq "/api/run" -and $ctx.Request.HttpMethod -eq "POST") {
+      $ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*")
       $reader = New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)
       $req = $reader.ReadToEnd() | ConvertFrom-Json
       $output = ""

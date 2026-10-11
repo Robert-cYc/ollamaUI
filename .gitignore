@@ -1,0 +1,13 @@
+# SQLite database files
+*.db
+*.db-wal
+*.db-shm
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# System / Temporary files
+sysinfo.js
+*.temp.csv

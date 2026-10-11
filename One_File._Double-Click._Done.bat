@@ -59,6 +59,7 @@ echo   Press any key here to SHUT DOWN the server and page host.
 pause >nul
 taskkill /F /IM ollama.exe >nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq Ollama Page Server*" >nul 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%%hw_logger.py%%'\" | Invoke-CimMethod -MethodName Terminate" >nul 2>&1
 exit /b 0
 
 :_permanent

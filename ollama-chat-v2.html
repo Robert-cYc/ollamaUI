@@ -258,6 +258,10 @@ ollama serve</pre>
         <span style="font-size:16px;">📈</span>
         <h2 style="font-size:15px; font-weight:600;">System Performance Monitor</h2>
         <span class="live-dot" title="Live update: 1s"></span>
+        <div id="hwSqliteBadge" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; background:#161b22; border:1px solid #30363d; padding:2px 8px; border-radius:12px; color:#8b949e;" title="Real-time SQLite persistence status">
+          <span id="hwSqliteDot" style="width:6px; height:6px; border-radius:50%; background:#8b949e; display:inline-block;"></span>
+          <span id="hwSqliteText">SQLite: Initializing</span>
+        </div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <div class="time-range-group">
@@ -267,6 +271,7 @@ ollama serve</pre>
           <button class="range-btn" data-range="28800">8h</button>
           <button class="range-btn" data-range="86400">24h</button>
         </div>
+        <button id="hwExportBtn" class="range-btn" style="color:#58a6ff; font-weight:500;" title="Export SQLite Telemetry to CSV">📥 CSV</button>
         <button id="closeHwModal" class="close-btn" title="Close (Esc)">✕</button>
       </div>
     </div>
@@ -1529,6 +1534,7 @@ function openHwDashboard() {
   $("hwModal").classList.add("open");
   resizeHwCanvas();
   renderHwDashboard();
+  loadHardwareHistoryFromSqlite(hwTimeRange);
   
   if (typeof window.sysinfo_data !== "undefined" && window.sysinfo_data) {
     const specsEl = $("hwSysSpecs");
@@ -1558,12 +1564,115 @@ $("hwMonitor").onclick = openHwDashboard;
 $("closeHwModal").onclick = closeHwDashboard;
 $("hwModal").onclick = e => { if (e.target === $("hwModal")) closeHwDashboard(); };
 
+const HW_API_BASE = window.location.protocol.startsWith("http") ? "/api/hardware" : "http://localhost:8086/api/hardware";
+let hwLoadingSqlite = false;
+let hwPendingBatch = [];
+let lastSqliteFlush = 0;
+
+function updateSqliteBadge(online, text) {
+  const badge = $("hwSqliteBadge");
+  const dot = $("hwSqliteDot");
+  const txt = $("hwSqliteText");
+  if (!badge || !dot || !txt) return;
+  dot.style.background = online ? "#3fb950" : "#8b949e";
+  txt.textContent = text;
+}
+
+async function loadHardwareHistoryFromSqlite(rangeSec = hwTimeRange) {
+  if (hwLoadingSqlite) return;
+  hwLoadingSqlite = true;
+  updateSqliteBadge(true, "SQLite: Syncing...");
+  try {
+    const url = `${HW_API_BASE}?range=${rangeSec}&maxPoints=500`;
+    let res = null;
+    try {
+      res = await fetch(url);
+    } catch (e) {
+      if (!HW_API_BASE.includes("8086")) {
+        res = await fetch(`http://localhost:8086/api/hardware?range=${rangeSec}&maxPoints=500`);
+      }
+    }
+    if (res && res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const sqlitePoints = data.map(d => {
+          const t = d.t || Date.now();
+          const time = new Date(t).toLocaleTimeString();
+          const dateStr = new Date(t).toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + " " + time;
+          return { t, time, dateStr, cpu: d.cpu, gpu: d.gpu, ram: d.ram, cpuTemp: d.cpuTemp, gpuTemp: d.gpuTemp };
+        });
+        
+        const minLive = hwTrend.length ? hwTrend[0].t : Date.now();
+        const olderPoints = sqlitePoints.filter(p => p.t < minLive);
+        if (olderPoints.length) {
+          hwTrend = [...olderPoints, ...hwTrend];
+        } else if (!hwTrend.length) {
+          hwTrend = sqlitePoints;
+        }
+        if (hwTrend.length > 86400) hwTrend = hwTrend.slice(-86400);
+        updateSqliteBadge(true, `SQLite: Synced (${data.length} pts)`);
+        if (hwDashboardOpen) renderHwDashboard();
+      } else {
+        updateSqliteBadge(true, "SQLite: Active (0 rows)");
+      }
+    } else {
+      updateSqliteBadge(false, "SQLite: Standby");
+    }
+  } catch (e) {
+    updateSqliteBadge(false, "SQLite: Standby");
+  } finally {
+    hwLoadingSqlite = false;
+  }
+}
+
+async function flushHardwareBatchToSqlite() {
+  if (!hwPendingBatch.length) return;
+  const batch = hwPendingBatch.slice();
+  hwPendingBatch = [];
+  try {
+    let res = null;
+    try {
+      res = await fetch(HW_API_BASE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(batch)
+      });
+    } catch (e) {
+      if (!HW_API_BASE.includes("8086")) {
+        res = await fetch("http://localhost:8086/api/hardware", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(batch)
+        });
+      }
+    }
+    if (res && res.ok) {
+      updateSqliteBadge(true, "SQLite: Active");
+    }
+  } catch (e) {
+    if (hwPendingBatch.length < 30) {
+      hwPendingBatch = [...batch, ...hwPendingBatch];
+    }
+  }
+}
+
+if ($("hwExportBtn")) {
+  $("hwExportBtn").onclick = () => {
+    const exportUrl = HW_API_BASE.includes("8086") ? "http://localhost:8086/api/hardware/export" : "/api/hardware/export";
+    window.open(exportUrl, "_blank");
+  };
+}
+
 document.querySelectorAll(".range-btn").forEach(btn => {
+  if (btn.id === "hwExportBtn") return;
   btn.onclick = () => {
-    document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".range-btn").forEach(b => { if (b.id !== "hwExportBtn") b.classList.remove("active"); });
     btn.classList.add("active");
     hwTimeRange = parseInt(btn.dataset.range, 10);
     renderHwDashboard();
+    if (hwTimeRange > 60) {
+      loadHardwareHistoryFromSqlite(hwTimeRange);
+    }
   };
 });
 
@@ -1655,7 +1764,14 @@ async function updateHardwareStatus() {
     hwTrend.push({ t: now, time: timeStr, dateStr, cpu, gpu, ram, cpuTemp, gpuTemp });
     if (hwTrend.length > 86400) hwTrend.shift();
 
-    // Persist to localStorage every 15s (1 sample per 15s keeps storage ~200KB)
+    // Buffer point for SQLite persistence
+    hwPendingBatch.push({ t: now, cpu, gpu, ram, cpuTemp, gpuTemp });
+    if (now - lastSqliteFlush > 3000) {
+      lastSqliteFlush = now;
+      flushHardwareBatchToSqlite();
+    }
+
+    // Persist to localStorage every 15s as fallback
     if (now - lastStorageSave > 15000) {
       lastStorageSave = now;
       try {
@@ -1671,6 +1787,7 @@ async function updateHardwareStatus() {
 }
 setInterval(updateHardwareStatus, 1000);
 updateHardwareStatus();
+loadHardwareHistoryFromSqlite(60);
 </script>
 </body>
 </html>
