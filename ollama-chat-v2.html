@@ -150,20 +150,25 @@
   .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(1, 4, 9, 0.85);
     backdrop-filter: blur(6px); z-index: 1000; align-items: center; justify-content: center; }
   .modal-backdrop.open { display: flex; }
-  .hw-dialog { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 840px;
-    max-width: 95vw; box-shadow: 0 16px 36px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; animation: fadeInScale 0.2s ease-out; }
+  .hw-dialog { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 880px;
+    max-width: 95vw; box-shadow: 0 16px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; overflow: hidden; animation: fadeInScale 0.2s ease-out; }
   @keyframes fadeInScale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-  .hw-head { padding: 12px 18px; background: #0d1117; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+  .hw-head { padding: 12px 18px; background: #0d1117; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
   .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; display: inline-block; box-shadow: 0 0 8px #3fb950; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
   .time-range-group { display: flex; background: #21262d; border-radius: 6px; padding: 2px; border: 1px solid #30363d; }
   .range-btn { background: transparent; border: none; color: #8b949e; font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
-  .range-btn.active { background: #30363d; color: #e6edf3; font-weight: 600; }
+  .range-btn:hover { color: #e6edf3; }
+  .range-btn.active { background: #30363d; color: #58a6ff; font-weight: 600; }
   .close-btn { background: transparent; border: none; color: #8b949e; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
   .close-btn:hover { background: #30363d; color: #ff7b72; }
   .hw-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-height: 85vh; overflow-y: auto; }
   .hw-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .hw-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .hw-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; transition: all 0.25s ease; }
+  .hw-card:hover { border-color: #58a6ff; transform: translateY(-1px); }
+  .hw-card.alert-warn { border-color: #d29922 !important; box-shadow: 0 0 14px rgba(210, 153, 34, 0.25) !important; }
+  .hw-card.alert-danger { border-color: #ff7b72 !important; box-shadow: 0 0 18px rgba(255, 123, 114, 0.4) !important; animation: alertGlow 1.8s infinite; }
+  @keyframes alertGlow { 0%,100% { box-shadow: 0 0 10px rgba(255,123,114,0.3); } 50% { box-shadow: 0 0 22px rgba(255,123,114,0.7); } }
   .hw-card-title { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #8b949e; font-weight: 600; }
   .hw-sub-val { font-size: 12px; color: #ffa657; font-family: ui-monospace, monospace; }
   .hw-card-val { font-size: 26px; font-weight: 700; color: #e6edf3; font-family: ui-monospace, monospace; }
@@ -177,8 +182,23 @@
   .hw-legend label { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
   .hw-chart-tooltip { position: absolute; pointer-events: none; background: rgba(22, 27, 34, 0.95); border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-family: ui-monospace, monospace; color: #e6edf3; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; white-space: nowrap; }
   .hw-sys-specs { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 8px 12px; font-size: 11.5px; color: #8b949e; font-family: ui-monospace, monospace; line-height: 1.5; }
-  #hwMonitor { cursor: pointer; transition: all 0.2s ease; user-select: none; }
-  #hwMonitor:hover { background: #161b22 !important; border-color: #58a6ff !important; box-shadow: 0 0 10px rgba(88,166,255,0.2); }
+  
+  .hw-header-capsule {
+    display: inline-flex; align-items: center; gap: 6px; background: #0d1117;
+    border: 1px solid #30363d; padding: 3px 8px; border-radius: 20px;
+    font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+    cursor: pointer; transition: all 0.2s ease; user-select: none;
+  }
+  .hw-header-capsule:hover {
+    border-color: #58a6ff; background: #161b22;
+    box-shadow: 0 0 10px rgba(88,166,255,0.25); transform: translateY(-1px);
+  }
+  .hw-mini-badge {
+    display: flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 10px;
+    background: rgba(255,255,255,0.02); transition: all 0.2s;
+  }
+  .hw-mini-badge.alert-warn { background: rgba(210,153,34,0.2); border: 1px solid rgba(210,153,34,0.5); }
+  .hw-mini-badge.alert-danger { background: rgba(255,123,114,0.22); border: 1px solid rgba(255,123,114,0.6); animation: alertGlow 1.8s infinite; }
 </style>
 </head>
 <body>
@@ -199,12 +219,18 @@
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
   <span id="tokenCount" style="margin-left: 12px; font-size: 13px; color: #8b949e;">Token Used: 0</span>
   <span class="spacer"></span>
-  <span id="hwMonitor" title="點擊開啟即時效能儀表板 (Click to open Real-time Performance Dashboard)" style="font-size: 13px; display: flex; gap: 10px; align-items: center; color: #8b949e; font-family: ui-monospace, monospace; background: #0d1117; padding: 4px 12px; border-radius: 6px; border: 1px solid #30363d;">
-    <span style="font-size:12px;">📈</span>
-    <span title="CPU Usage">CPU: <span id="hwCpu" style="color:#e6edf3;font-weight:600">--%</span></span>
-    <span title="GPU Usage">GPU: <span id="hwGpu" style="color:#e6edf3;font-weight:600">--%</span></span>
-    <span title="RAM Usage">RAM: <span id="hwRam" style="color:#e6edf3;font-weight:600">--%</span></span>
-  </span>
+  <div id="hwMonitor" class="hw-header-capsule" title="點擊開啟系統效能即時儀表板 (點擊開展詳細圖表與歷史記錄)">
+    <span class="live-dot" style="width:6px; height:6px;" title="即時取樣中"></span>
+    <div class="hw-mini-badge" id="miniCpuBadge" title="處理器負載與溫度">
+      <span>⚡</span><span style="color:#8b949e;font-size:11px;">CPU</span><span id="hwCpu" style="color:#e6edf3;font-weight:600">--%</span>
+    </div>
+    <div class="hw-mini-badge" id="miniGpuBadge" title="顯示卡負載與溫度">
+      <span>🎮</span><span style="color:#8b949e;font-size:11px;">GPU</span><span id="hwGpu" style="color:#e6edf3;font-weight:600">--%</span>
+    </div>
+    <div class="hw-mini-badge" id="miniRamBadge" title="記憶體負載">
+      <span>💾</span><span style="color:#8b949e;font-size:11px;">RAM</span><span id="hwRam" style="color:#e6edf3;font-weight:600">--%</span>
+    </div>
+  </div>
 </header>
 
 <main>
@@ -256,23 +282,30 @@ ollama serve</pre>
     <div class="hw-head">
       <div style="display:flex; align-items:center; gap:8px;">
         <span style="font-size:16px;">📈</span>
-        <h2 style="font-size:15px; font-weight:600;">System Performance Monitor</h2>
-        <span class="live-dot" title="Live update: 1s"></span>
-        <div id="hwSqliteBadge" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; background:#161b22; border:1px solid #30363d; padding:2px 8px; border-radius:12px; color:#8b949e;" title="Real-time SQLite persistence status">
+        <h2 style="font-size:15px; font-weight:600;">系統效能即時監控</h2>
+        <span class="live-dot" title="即時運作中"></span>
+        <div id="hwSqliteBadge" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; background:#161b22; border:1px solid #30363d; padding:2px 8px; border-radius:12px; color:#8b949e;" title="SQLite 資料庫狀態">
           <span id="hwSqliteDot" style="width:6px; height:6px; border-radius:50%; background:#8b949e; display:inline-block;"></span>
-          <span id="hwSqliteText">SQLite: Initializing</span>
+          <span id="hwSqliteText">SQLite: 連線中</span>
         </div>
       </div>
-      <div style="display:flex; align-items:center; gap:8px;">
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
         <div class="time-range-group">
-          <button class="range-btn active" data-range="60">60s</button>
-          <button class="range-btn" data-range="300">5m</button>
-          <button class="range-btn" data-range="3600">1h</button>
-          <button class="range-btn" data-range="28800">8h</button>
-          <button class="range-btn" data-range="86400">24h</button>
+          <button class="range-btn active" data-range="60">60秒</button>
+          <button class="range-btn" data-range="300">5分鐘</button>
+          <button class="range-btn" data-range="3600">1小時</button>
+          <button class="range-btn" data-range="28800">8小時</button>
+          <button class="range-btn" data-range="86400">24小時</button>
         </div>
-        <button id="hwExportBtn" class="range-btn" style="color:#58a6ff; font-weight:500;" title="Export SQLite Telemetry to CSV">📥 CSV</button>
-        <button id="closeHwModal" class="close-btn" title="Close (Esc)">✕</button>
+        <button id="hwPauseBtn" class="range-btn" style="border:1px solid #30363d;" title="暫停/繼續即時更新，方便檢視過去數據">⏸ 暫停</button>
+        <select id="hwIntervalSelect" class="range-btn" style="border:1px solid #30363d; background:#21262d; color:#c9d1d9; cursor:pointer;" title="取樣更新頻率">
+          <option value="1000">⏱ 1秒</option>
+          <option value="2000">⏱ 2秒</option>
+          <option value="5000">⏱ 5秒</option>
+        </select>
+        <button id="hwClearBtn" class="range-btn" style="border:1px solid #30363d; color:#ff7b72;" title="清除前端快取之歷史曲線">🗑️ 清除快取</button>
+        <button id="hwExportBtn" class="range-btn" style="border:1px solid #30363d; color:#58a6ff; font-weight:600;" title="匯出 SQLite/快取數據為 CSV 檔案">📥 匯出 CSV</button>
+        <button id="closeHwModal" class="close-btn" title="關閉視窗 (Esc)">✕</button>
       </div>
     </div>
     
@@ -280,56 +313,56 @@ ollama serve</pre>
       <div class="hw-cards">
         <div class="hw-card" id="cardCpu">
           <div class="hw-card-title">
-            <span>⚡ CPU Total</span>
+            <span>⚡ 處理器 (CPU Total)</span>
             <span id="cardCpuTemp" class="hw-sub-val">--°C</span>
           </div>
           <div class="hw-card-val" id="cardCpuVal">--%</div>
           <div class="hw-bar-bg"><div id="cardCpuBar" class="hw-bar-fill" style="background:#58a6ff; width:0%;"></div></div>
           <div class="hw-card-footer">
-            <span>Min: <b id="cardCpuMin">--%</b></span>
-            <span>Avg: <b id="cardCpuAvg">--%</b></span>
-            <span>Max: <b id="cardCpuMax">--%</b></span>
+            <span>最低: <b id="cardCpuMin">--%</b></span>
+            <span>平均: <b id="cardCpuAvg">--%</b></span>
+            <span>最高: <b id="cardCpuMax">--%</b></span>
           </div>
         </div>
 
         <div class="hw-card" id="cardGpu">
           <div class="hw-card-title">
-            <span>🎮 GPU Core</span>
+            <span>🎮 顯示卡 (GPU Core)</span>
             <span id="cardGpuTemp" class="hw-sub-val">--°C</span>
           </div>
           <div class="hw-card-val" id="cardGpuVal">--%</div>
           <div class="hw-bar-bg"><div id="cardGpuBar" class="hw-bar-fill" style="background:#3fb950; width:0%;"></div></div>
           <div class="hw-card-footer">
-            <span>Min: <b id="cardGpuMin">--%</b></span>
-            <span>Avg: <b id="cardGpuAvg">--%</b></span>
-            <span>Max: <b id="cardGpuMax">--%</b></span>
+            <span>最低: <b id="cardGpuMin">--%</b></span>
+            <span>平均: <b id="cardGpuAvg">--%</b></span>
+            <span>最高: <b id="cardGpuMax">--%</b></span>
           </div>
         </div>
 
         <div class="hw-card" id="cardRam">
           <div class="hw-card-title">
-            <span>💾 Memory (RAM)</span>
-            <span class="hw-sub-val">Load</span>
+            <span>💾 記憶體 (RAM)</span>
+            <span class="hw-sub-val">使用比例</span>
           </div>
           <div class="hw-card-val" id="cardRamVal">--%</div>
           <div class="hw-bar-bg"><div id="cardRamBar" class="hw-bar-fill" style="background:#bc8cff; width:0%;"></div></div>
           <div class="hw-card-footer">
-            <span>Min: <b id="cardRamMin">--%</b></span>
-            <span>Avg: <b id="cardRamAvg">--%</b></span>
-            <span>Max: <b id="cardRamMax">--%</b></span>
+            <span>最低: <b id="cardRamMin">--%</b></span>
+            <span>平均: <b id="cardRamAvg">--%</b></span>
+            <span>最高: <b id="cardRamMax">--%</b></span>
           </div>
         </div>
       </div>
 
       <div class="hw-chart-container">
         <div class="hw-chart-header">
-          <span style="font-size:12px; color:#8b949e; font-weight:600;">Real-Time Activity Trends</span>
+          <span style="font-size:12px; color:#8b949e; font-weight:600;">📊 即時負載與溫度趨勢 (Real-Time Telemetry Trends)</span>
           <div class="hw-legend">
-            <label><input type="checkbox" id="showCpu" checked> <span style="color:#58a6ff;">● CPU %</span></label>
-            <label><input type="checkbox" id="showGpu" checked> <span style="color:#3fb950;">● GPU %</span></label>
-            <label><input type="checkbox" id="showRam" checked> <span style="color:#bc8cff;">● RAM %</span></label>
-            <label><input type="checkbox" id="showCpuTemp"> <span style="color:#ffa657;">┄ CPU °C</span></label>
-            <label><input type="checkbox" id="showGpuTemp"> <span style="color:#ff7b72;">┄ GPU °C</span></label>
+            <label><input type="checkbox" id="showCpu" checked> <span style="color:#58a6ff;">● CPU 負載 %</span></label>
+            <label><input type="checkbox" id="showGpu" checked> <span style="color:#3fb950;">● GPU 負載 %</span></label>
+            <label><input type="checkbox" id="showRam" checked> <span style="color:#bc8cff;">● RAM 記憶體 %</span></label>
+            <label><input type="checkbox" id="showCpuTemp"> <span style="color:#ffa657;">┄ CPU 溫度 °C</span></label>
+            <label><input type="checkbox" id="showGpuTemp"> <span style="color:#ff7b72;">┄ GPU 溫度 °C</span></label>
           </div>
         </div>
         <div style="position:relative; width:100%; height:260px;">
@@ -1300,6 +1333,9 @@ let hwTimeRange = 60;
 let hwHoverIndex = null;
 let currentRenderPoints = [];
 let lastStorageSave = 0;
+let hwPaused = false;
+let hwIntervalMs = 1000;
+let hwTimerId = null;
 
 function resizeHwCanvas() {
   const canvas = $("hwCanvas");
@@ -1313,13 +1349,13 @@ function resizeHwCanvas() {
 }
 
 function formatTimeRangeLabel(sec) {
-  if (sec < 60) return `-${Math.round(sec)}s`;
+  if (sec < 60) return `-${Math.round(sec)}秒`;
   if (sec < 3600) {
     const m = sec / 60;
-    return `-${m % 1 === 0 ? m : m.toFixed(1)}m`;
+    return `-${m % 1 === 0 ? m : m.toFixed(1)}分`;
   }
   const h = sec / 3600;
-  return `-${h % 1 === 0 ? h : h.toFixed(1)}h`;
+  return `-${h % 1 === 0 ? h : h.toFixed(1)}小時`;
 }
 
 function sampleDataForChart(data, maxPoints = 450) {
@@ -1355,6 +1391,7 @@ function renderHwDashboard() {
     
     // CPU Card
     const cpuVal = parseFloat(last.cpu) || 0;
+    const cpuTempVal = parseFloat(last.cpuTemp) || 0;
     $("cardCpuVal").textContent = last.cpu !== "--" ? `${last.cpu}%` : "--%";
     $("cardCpuBar").style.width = `${Math.min(100, Math.max(0, cpuVal))}%`;
     $("cardCpuTemp").textContent = last.cpuTemp && last.cpuTemp !== "--" ? `${last.cpuTemp}°C` : "";
@@ -1364,9 +1401,12 @@ function renderHwDashboard() {
       $("cardCpuMax").textContent = `${Math.max(...cpuNums).toFixed(1)}%`;
       $("cardCpuAvg").textContent = `${(cpuNums.reduce((a, b) => a + b, 0) / cpuNums.length).toFixed(1)}%`;
     }
+    const cpuAlert = (cpuVal >= 90 || cpuTempVal >= 82) ? "alert-danger" : ((cpuVal >= 80 || cpuTempVal >= 75) ? "alert-warn" : "");
+    $("cardCpu").className = "hw-card " + cpuAlert;
     
     // GPU Card
     const gpuVal = parseFloat(last.gpu) || 0;
+    const gpuTempVal = parseFloat(last.gpuTemp) || 0;
     $("cardGpuVal").textContent = last.gpu !== "--" ? `${last.gpu}%` : "--%";
     $("cardGpuBar").style.width = `${Math.min(100, Math.max(0, gpuVal))}%`;
     $("cardGpuTemp").textContent = last.gpuTemp && last.gpuTemp !== "--" ? `${last.gpuTemp}°C` : "";
@@ -1376,6 +1416,8 @@ function renderHwDashboard() {
       $("cardGpuMax").textContent = `${Math.max(...gpuNums).toFixed(1)}%`;
       $("cardGpuAvg").textContent = `${(gpuNums.reduce((a, b) => a + b, 0) / gpuNums.length).toFixed(1)}%`;
     }
+    const gpuAlert = (gpuVal >= 90 || gpuTempVal >= 82) ? "alert-danger" : ((gpuVal >= 80 || gpuTempVal >= 75) ? "alert-warn" : "");
+    $("cardGpu").className = "hw-card " + gpuAlert;
 
     // RAM Card
     const ramVal = parseFloat(last.ram) || 0;
@@ -1387,6 +1429,8 @@ function renderHwDashboard() {
       $("cardRamMax").textContent = `${Math.max(...ramNums).toFixed(1)}%`;
       $("cardRamAvg").textContent = `${(ramNums.reduce((a, b) => a + b, 0) / ramNums.length).toFixed(1)}%`;
     }
+    const ramAlert = ramVal >= 90 ? "alert-danger" : (ramVal >= 80 ? "alert-warn" : "");
+    $("cardRam").className = "hw-card " + ramAlert;
   }
 
   // Draw chart
@@ -1424,7 +1468,7 @@ function renderHwDashboard() {
   if (dataSlice.length < 2) {
     ctx.fillStyle = "#6e7681";
     ctx.textAlign = "center";
-    ctx.fillText("Gathering performance data...", padLeft + plotW / 2, padTop + plotH / 2);
+    ctx.fillText("收集效能數據中 (Gathering telemetry)...", padLeft + plotW / 2, padTop + plotH / 2);
     currentRenderPoints = [];
     return;
   }
@@ -1444,9 +1488,9 @@ function renderHwDashboard() {
   });
 
   const series = [
-    { key: "cpu", show: $("showCpu").checked, color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
-    { key: "gpu", show: $("showGpu").checked, color: "#3fb950", fill: "rgba(63,185,80,0.12)" },
-    { key: "ram", show: $("showRam").checked, color: "#bc8cff", fill: "rgba(188,140,255,0.12)" },
+    { key: "cpu", show: $("showCpu").checked, color: "#58a6ff", fillGrad: ["rgba(88,166,255,0.25)", "rgba(88,166,255,0.01)"] },
+    { key: "gpu", show: $("showGpu").checked, color: "#3fb950", fillGrad: ["rgba(63,185,80,0.25)", "rgba(63,185,80,0.01)"] },
+    { key: "ram", show: $("showRam").checked, color: "#bc8cff", fillGrad: ["rgba(188,140,255,0.22)", "rgba(188,140,255,0.01)"] },
     { key: "cpuTemp", show: $("showCpuTemp").checked, color: "#ffa657", dashed: true },
     { key: "gpuTemp", show: $("showGpuTemp").checked, color: "#ff7b72", dashed: true }
   ];
@@ -1460,32 +1504,38 @@ function renderHwDashboard() {
     }
     if (pts.length < 2) return;
 
-    if (s.fill) {
+    if (s.fillGrad) {
+      const grad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+      grad.addColorStop(0, s.fillGrad[0]);
+      grad.addColorStop(1, s.fillGrad[1]);
       ctx.beginPath();
       ctx.moveTo(pts[0].x, padTop + plotH);
       pts.forEach(p => ctx.lineTo(p.x, p.y));
       ctx.lineTo(pts[pts.length - 1].x, padTop + plotH);
       ctx.closePath();
-      ctx.fillStyle = s.fill;
+      ctx.fillStyle = grad;
       ctx.fill();
     }
 
+    ctx.save();
+    ctx.shadowColor = s.color;
+    ctx.shadowBlur = 4;
     ctx.beginPath();
     if (s.dashed) ctx.setLineDash([4, 4]);
     else ctx.setLineDash([]);
     ctx.strokeStyle = s.color;
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 1.9;
     pts.forEach((p, idx) => {
       if (idx === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     });
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.restore();
 
     const lastPt = pts[pts.length - 1];
     ctx.fillStyle = s.color;
     ctx.beginPath();
-    ctx.arc(lastPt.x, lastPt.y, 3, 0, Math.PI * 2);
+    ctx.arc(lastPt.x, lastPt.y, 3.5, 0, Math.PI * 2);
     ctx.fill();
   });
 
@@ -1496,7 +1546,7 @@ function renderHwDashboard() {
   ctx.textAlign = "center";
   ctx.fillText(formatTimeRangeLabel(hwTimeRange / 2), padLeft + plotW / 2, H - 8);
   ctx.textAlign = "right";
-  ctx.fillText("now", padLeft + plotW, H - 8);
+  ctx.fillText("現在", padLeft + plotW, H - 8);
 
   // Hover Crosshair & Tooltip
   if (hwHoverIndex !== null && hwHoverIndex >= 0 && hwHoverIndex < currentRenderPoints.length) {
@@ -1516,11 +1566,11 @@ function renderHwDashboard() {
     const displayTime = item.dateStr || item.time;
     tooltip.innerHTML = `
       <div style="font-weight:700; color:#c9d1d9; margin-bottom:4px; border-bottom:1px solid #30363d; padding-bottom:2px;">🕒 ${displayTime}</div>
-      <div style="color:#58a6ff;">CPU: <b>${item.cpu}%</b> ${item.cpuTemp && item.cpuTemp !== "--" ? `(${item.cpuTemp}°C)` : ""}</div>
-      <div style="color:#3fb950;">GPU: <b>${item.gpu}%</b> ${item.gpuTemp && item.gpuTemp !== "--" ? `(${item.gpuTemp}°C)` : ""}</div>
-      <div style="color:#bc8cff;">RAM: <b>${item.ram}%</b></div>
+      <div style="color:#58a6ff;">⚡ 處理器: <b>${item.cpu}%</b> ${item.cpuTemp && item.cpuTemp !== "--" ? `(${item.cpuTemp}°C)` : ""}</div>
+      <div style="color:#3fb950;">🎮 顯示卡: <b>${item.gpu}%</b> ${item.gpuTemp && item.gpuTemp !== "--" ? `(${item.gpuTemp}°C)` : ""}</div>
+      <div style="color:#bc8cff;">💾 記憶體: <b>${item.ram}%</b></div>
     `;
-    const tipW = 150;
+    const tipW = 155;
     const posX = hoverX + 15 + tipW > W ? hoverX - tipW - 15 : hoverX + 15;
     tooltip.style.left = `${posX}px`;
     tooltip.style.top = `25px`;
@@ -1724,10 +1774,9 @@ if ($("hwExportBtn")) {
   };
 }
 
-document.querySelectorAll(".range-btn").forEach(btn => {
-  if (btn.id === "hwExportBtn") return;
+document.querySelectorAll(".time-range-group .range-btn").forEach(btn => {
   btn.onclick = () => {
-    document.querySelectorAll(".range-btn").forEach(b => { if (b.id !== "hwExportBtn") b.classList.remove("active"); });
+    document.querySelectorAll(".time-range-group .range-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     hwTimeRange = parseInt(btn.dataset.range, 10);
     renderHwDashboard();
@@ -1736,6 +1785,36 @@ document.querySelectorAll(".range-btn").forEach(btn => {
     }
   };
 });
+
+if ($("hwPauseBtn")) {
+  $("hwPauseBtn").onclick = () => {
+    hwPaused = !hwPaused;
+    $("hwPauseBtn").textContent = hwPaused ? "▶ 繼續" : "⏸ 暫停";
+    $("hwPauseBtn").classList.toggle("active", hwPaused);
+    if (!hwPaused && hwDashboardOpen) renderHwDashboard();
+  };
+}
+
+if ($("hwIntervalSelect")) {
+  $("hwIntervalSelect").onchange = (e) => {
+    const ms = parseInt(e.target.value, 10) || 1000;
+    hwIntervalMs = ms;
+    if (hwTimerId) clearInterval(hwTimerId);
+    hwTimerId = setInterval(updateHardwareStatus, hwIntervalMs);
+    log("INFO", `效能監控取樣間隔調整為 ${ms / 1000} 秒`);
+  };
+}
+
+if ($("hwClearBtn")) {
+  $("hwClearBtn").onclick = () => {
+    if (confirm("確定要清空前端快取的即時曲線數據嗎？（不影響 SQLite 永久歷史資料庫）")) {
+      hwTrend = [];
+      try { localStorage.removeItem("ollama_hw_trend_v1"); } catch(e) {}
+      renderHwDashboard();
+      log("INFO", "已清除前端效能曲線快取");
+    }
+  };
+}
 
 ["showCpu", "showGpu", "showRam", "showCpuTemp", "showGpuTemp"].forEach(id => {
   $(id).onchange = () => renderHwDashboard();
@@ -1808,6 +1887,12 @@ async function updateHardwareStatus() {
       return "#e6edf3";
     }
     
+    const cpuNum = parseFloat(cpu) || 0;
+    const gpuNum = parseFloat(gpu) || 0;
+    const ramNum = parseFloat(ram) || 0;
+    const cpuTempNum = parseFloat(cpuTemp) || 0;
+    const gpuTempNum = parseFloat(gpuTemp) || 0;
+
     if (cpu !== "--") {
       $("hwCpu").textContent = cpu.padStart(4, " ") + "%" + (cpuTemp !== "--" ? ` ${cpuTemp}°C` : "");
       $("hwCpu").style.color = getColor(cpu);
@@ -1818,6 +1903,20 @@ async function updateHardwareStatus() {
     }
     if (ram !== "--") $("hwRam").textContent = ram.padStart(4, " ") + "%";
     
+    // Header mini badge alerts
+    const miniCpu = $("miniCpuBadge");
+    const miniGpu = $("miniGpuBadge");
+    const miniRam = $("miniRamBadge");
+    if (miniCpu) {
+      miniCpu.className = "hw-mini-badge " + ((cpuNum >= 90 || cpuTempNum >= 82) ? "alert-danger" : ((cpuNum >= 80 || cpuTempNum >= 75) ? "alert-warn" : ""));
+    }
+    if (miniGpu) {
+      miniGpu.className = "hw-mini-badge " + ((gpuNum >= 90 || gpuTempNum >= 82) ? "alert-danger" : ((gpuNum >= 80 || gpuTempNum >= 75) ? "alert-warn" : ""));
+    }
+    if (miniRam) {
+      miniRam.className = "hw-mini-badge " + (ramNum >= 90 ? "alert-danger" : (ramNum >= 80 ? "alert-warn" : ""));
+    }
+
     const now = Date.now();
     const timeStr = new Date(now).toLocaleTimeString();
     const dateStr = new Date(now).toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + " " + timeStr;
@@ -1841,12 +1940,12 @@ async function updateHardwareStatus() {
       } catch (e) {}
     }
 
-    if (hwDashboardOpen) renderHwDashboard();
+    if (hwDashboardOpen && !hwPaused) renderHwDashboard();
   } catch (e) {
     // Silently fail if LibreHardwareMonitor is not running
   }
 }
-setInterval(updateHardwareStatus, 1000);
+hwTimerId = setInterval(updateHardwareStatus, hwIntervalMs);
 updateHardwareStatus();
 loadHardwareHistoryFromSqlite(60);
 </script>
