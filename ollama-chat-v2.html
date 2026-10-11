@@ -54,11 +54,12 @@
   .avatar { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
     display: grid; place-items: center; font-size: 11px; font-weight: 700; }
   .user .avatar { background: #1f6feb; } .bot .avatar { background: #8957e5; }
-  .bubble { flex: 1; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; 
+  .msg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .bubble { line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; 
     padding: 10px 14px; border-radius: 12px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
   .user .bubble { background: #161b22; border: 1px solid #30363d; border-top-right-radius: 4px; }
   .bot .bubble { background: #0d1117; border: 1px solid #21262d; border-top-left-radius: 4px; }
-  .code-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin: 7px 0; overflow: hidden; }
+  .code-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin: 7px 0; overflow: hidden; white-space: normal; }
   .code-head { display: flex; justify-content: space-between; padding: 4px 11px; background: #0d1117; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e; font-family: ui-monospace, monospace; }
   .code-copy { background: none; border: none; color: #8b949e; cursor: pointer; font-size: 11px; transition: color 0.15s; }
   .code-copy:hover { color: #e6edf3; }
@@ -66,6 +67,35 @@
   .bubble code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
   .bubble pre code { background: none; padding: 0; }
   .meta { font-size: 11px; color: #7d8590; margin-top: 6px; font-family: ui-monospace, monospace; }
+  .msg-actions { display: flex; gap: 6px; margin-top: 6px; opacity: 0.6; transition: opacity 0.2s ease; }
+  .msg:hover .msg-actions { opacity: 1; }
+  .msg-btn { background: transparent; border: 1px solid #30363d; color: #8b949e; border-radius: 4px; padding: 2px 8px; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease; }
+  .msg-btn:hover { background: #21262d; color: #e6edf3; border-color: #58a6ff; }
+  
+  .think-box { background: #161b22; border: 1px solid #30363d; border-left: 3px solid #bc8cff; border-radius: 6px; margin: 6px 0 10px 0; overflow: hidden; font-size: 13px; }
+  .think-summary { padding: 6px 10px; background: #0d1117; color: #d2a8ff; font-weight: 600; cursor: pointer; user-select: none; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .think-summary:hover { color: #e6edf3; background: #161b22; }
+  .think-body { padding: 10px 12px; color: #8b949e; font-size: 12.5px; line-height: 1.5; border-top: 1px solid #21262d; max-height: 360px; overflow-y: auto; white-space: pre-wrap; }
+  .think-divider { height: 1px; background: #30363d; margin: 8px 0; }
+  
+  .md-img { max-width: 100%; max-height: 480px; border-radius: 8px; margin: 8px 0; display: block; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.2s ease; }
+  .md-img:hover { transform: scale(1.01); }
+  .bubble a { color: #58a6ff; text-decoration: underline; text-underline-offset: 3px; }
+  .bubble a:hover { color: #79c0ff; }
+  .table-wrap { width: 100%; overflow-x: auto; margin: 8px 0; white-space: normal; }
+  .md-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .md-table th, .md-table td { border: 1px solid #30363d; padding: 6px 10px; text-align: left; }
+  .md-table th { background: #161b22; color: #e6edf3; font-weight: 600; }
+  .md-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 10px 0 6px 0; color: #e6edf3; line-height: 1.3; }
+  .bubble h1 { font-size: 18px; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
+  .bubble h2 { font-size: 16px; border-bottom: 1px solid #21262d; padding-bottom: 3px; }
+  .bubble h3 { font-size: 14.5px; }
+  .bubble h4 { font-size: 13.5px; }
+  .bubble blockquote { border-left: 3px solid #58a6ff; padding-left: 10px; margin: 6px 0; color: #8b949e; background: rgba(88,166,255,0.05); border-radius: 0 4px 4px 0; }
+  .bubble hr.md-hr { border: none; border-top: 1px solid #30363d; margin: 12px 0; }
+  .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+  .bubble li { margin: 2px 0; }
   .empty { margin: auto; text-align: center; color: #7d8590; }
   #logPane { width: 420px; border-left: 1px solid #30363d; background: #010409;
     display: flex; flex-direction: column; flex-shrink: 0; }
@@ -153,6 +183,7 @@
         <button id="speakerBtn" title="Toggle Auto Speak" style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #7ee787;">&#128266;</button>
         <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
         <button id="send" class="primary" disabled>Send</button>
+        <button id="stopBtn" class="danger" style="display:none;" title="Stop generation (Esc)">Stop</button>
       </div>
     </footer>
   </div>
@@ -192,7 +223,32 @@ ollama serve</pre>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
 let activeModel = null, history = [], busy = false, autoScroll = true, totalTokens = 0;
-let autoSpeak = true;
+let autoSpeak = true, chatAbort = null;
+
+function updateSendStopUI(isBusy) {
+  if (isBusy) {
+    $("send").style.display = "none";
+    $("stopBtn").style.display = "inline-block";
+    if ($("micBtn")) $("micBtn").disabled = true;
+  } else {
+    $("send").style.display = "inline-block";
+    $("stopBtn").style.display = "none";
+    $("send").disabled = !activeModel;
+    if ($("micBtn")) $("micBtn").disabled = !activeModel;
+  }
+}
+
+function speakWithBestVoice(utt, voices = null) {
+  const availableVoices = voices || window.speechSynthesis.getVoices();
+  const zhVoices = availableVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn'));
+  let bestVoice = zhVoices.find(v => v.name.includes('Natural') || v.name.includes('Online'));
+  if (!bestVoice) bestVoice = zhVoices.find(v => v.name.includes('Google') || v.name.includes('Siri'));
+  if (!bestVoice) bestVoice = zhVoices[0];
+  if (bestVoice) utt.voice = bestVoice;
+  utt.lang = 'zh-TW';
+  utt.rate = 1.0;
+  window.speechSynthesis.speak(utt);
+}
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
@@ -370,7 +426,7 @@ async function delModel() {
     log("OK", "Deleted " + name);
     if (activeModel === name) { 
       activeModel = null; 
-      $("input").disabled = true; $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+      $("input").disabled = true; updateSendStopUI(false);
       $("run").textContent = "Run Model"; $("run").className = "primary";
     }
     loadModels(true);
@@ -391,7 +447,7 @@ async function runModel() {
       activeModel = null;
       $("run").textContent = "Run Model"; $("run").className = "primary";
       $("input").disabled = true; $("input").placeholder = "Run a model first...";
-      $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+      updateSendStopUI(false);
       setStatus("stopped", "off");
     } catch (e) {
       log("ERROR", "Unload failed: " + e.message);
@@ -419,11 +475,12 @@ async function runModel() {
     log("STAT", "load_duration : " + ms(data.load_duration));
     log("OK", 'Model "' + name + '" resident in memory');
     psCheck();
-    activeModel = name; history = [{ role: "system", content: "隢?敹蝙?函?擃葉??蝑lease always answer in Traditional Chinese." }];
+    activeModel = name; history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }];
     $("chat").innerHTML = "";
     addMsg("bot", "**" + name + "** loaded and ready. Ask me anything!");
     $("input").disabled = false; $("input").placeholder = "Message " + name + "...";
-    $("send").disabled = false; if ($("micBtn")) $("micBtn").disabled = false; $("input").focus();
+    updateSendStopUI(false);
+    $("input").focus();
     setStatus("running: " + name, "on");
     
     $("run").textContent = "Stop Model"; $("run").className = "danger";
@@ -445,23 +502,32 @@ async function psCheck() {
   } catch (e) { log("WARN", "ps failed: " + e.message); }
 }
 
-async function send(isToolRetry = false) {
-  if (!isToolRetry) {
+async function send(isToolRetry = false, isRegenerate = false) {
+  if (!isToolRetry && !isRegenerate) {
     const text = $("input").value.trim();
     if (!text || busy || !activeModel) return;
-    busy = true; $("send").disabled = true; if ($("micBtn")) $("micBtn").disabled = true;
+    busy = true;
+    updateSendStopUI(true);
     $("input").value = ""; $("input").style.height = "auto";
     addMsg("user", text);
     history.push({ role: "user", content: text });
     log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
     log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
+  } else if (isRegenerate) {
+    if (busy || !activeModel) return;
+    busy = true;
+    updateSendStopUI(true);
+    log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " (Regenerate) ===");
+    log("REQ", "POST /api/chat (Regenerate)  model=" + activeModel + "  msgs=" + history.length);
   } else {
     log("REQ", "POST /api/chat (Tool Retry)  model=" + activeModel + "  msgs=" + history.length);
   }
 
-  const bubble = addMsg("bot", isToolRetry ? "*(?亥岷銝?..)*\n" : ""); bubble.classList.add("cursor");
+  const bubble = addMsg("bot", isToolRetry ? "*(查詢/調用工具中...)*\n" : "");
+  bubble.classList.add("cursor");
   let reply = "", chunks = 0, ttft = null, toolCalls = null;
   const t0 = performance.now();
+  chatAbort = new AbortController();
   
   const tools = [
     { type: "function", function: { name: "search_web", description: "Search the web for info.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
@@ -486,7 +552,8 @@ async function send(isToolRetry = false) {
   try {
     const res = await fetch(HOST + "/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools, options: { temperature: 0.2 } })
+      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools, options: { temperature: 0.2 } }),
+      signal: chatAbort.signal
     });
     if (!res.ok) throw new Error(res.status + " " + await res.text());
     log("RES", res.status + " - stream opened - " + (performance.now() - t0).toFixed(0) + "ms");
@@ -506,8 +573,9 @@ async function send(isToolRetry = false) {
           }
           if (o.message.content) {
             if (ttft === null) { ttft = performance.now() - t0; log("OK", "First token in " + ttft.toFixed(0) + "ms (TTFT)"); }
-            if (isToolRetry && chunks === 0) reply = ""; // 皜?內??
+            if (isToolRetry && chunks === 0) reply = ""; // 清除提示文字
             chunks++; reply += o.message.content;
+            bubble._rawText = reply;
             bubble.innerHTML = md(reply);
             $("chat").scrollTop = $("chat").scrollHeight;
             log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
@@ -674,48 +742,40 @@ async function send(isToolRetry = false) {
       log("OK", "Reply complete (" + reply.length + " chars)");
       
       if (autoSpeak && 'speechSynthesis' in window) {
-        const textToSpeak = reply.replace(/<[^>]*>?/gm, '').replace(/[\*\#\`\_]/g, '').replace(/!\[.*?\]\(.*?\)/g, '');
+        const textToSpeak = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<[^>]*>?/gm, '').replace(/[\*\#\`\_]/g, '').replace(/!\[.*?\]\(.*?\)/g, '');
         const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        
         let voices = window.speechSynthesis.getVoices();
         if (voices.length === 0) {
-            // Sometimes voices are not loaded immediately
-            window.speechSynthesis.onvoiceschanged = () => {
-                voices = window.speechSynthesis.getVoices();
-                speakWithBestVoice(utterance, voices);
-            };
+          window.speechSynthesis.onvoiceschanged = () => {
+            speakWithBestVoice(utterance, window.speechSynthesis.getVoices());
+          };
         } else {
-            speakWithBestVoice(utterance, voices);
-        }
-
-        function speakWithBestVoice(utt, availableVoices) {
-            // Filter Chinese voices
-            const zhVoices = availableVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn'));
-            
-            // Prioritize Edge/Windows "Natural" or "Online" voices which sound like real humans
-            let bestVoice = zhVoices.find(v => v.name.includes('Natural') || v.name.includes('Online'));
-            
-            // Fallback to Google or Siri voices
-            if (!bestVoice) bestVoice = zhVoices.find(v => v.name.includes('Google') || v.name.includes('Siri'));
-            
-            // Fallback to any Chinese voice
-            if (!bestVoice) bestVoice = zhVoices[0];
-            
-            if (bestVoice) utt.voice = bestVoice;
-            utt.lang = 'zh-TW';
-            utt.rate = 1.0;
-            window.speechSynthesis.speak(utt);
+          speakWithBestVoice(utterance, voices);
         }
       }
     }
   } catch (e) {
-    bubble.textContent = "Error: " + e.message;
-    bubble.style.color = "#ff7b72";
-    log("ERROR", "Chat failed: " + e.message);
+    if (e.name === "AbortError") {
+      log("WARN", "Generation stopped by user");
+      if (reply) {
+        history.push({ role: "assistant", content: reply });
+        bubble._rawText = reply;
+        bubble.innerHTML = md(reply) + " <span style='color:#e3b341;font-size:12px;font-style:italic;'>[已中止]</span>";
+      } else {
+        bubble.innerHTML = "<span style='color:#8b949e;font-size:12px;font-style:italic;'>[已中止回答]</span>";
+      }
+    } else {
+      bubble.textContent = "Error: " + e.message;
+      bubble.style.color = "#ff7b72";
+      log("ERROR", "Chat failed: " + e.message);
+    }
   } finally {
+    chatAbort = null;
     if (!toolCalls || toolCalls.length === 0) {
       bubble.classList.remove("cursor");
-      busy = false; $("send").disabled = false; 
+      busy = false;
+      updateSendStopUI(false);
+      attachMsgActions(bubble.closest('.msg'), 'bot', reply || bubble._rawText || bubble.innerText);
       if ($("micBtn")) {
         $("micBtn").disabled = false;
         if (typeof autoMic !== "undefined" && autoMic && typeof recognition !== "undefined" && !isRecording) {
@@ -727,23 +787,197 @@ async function send(isToolRetry = false) {
   }
 }
 
+function attachMsgActions(msgEl, role, rawText) {
+  if (!msgEl) return;
+  const actionsEl = msgEl.querySelector(".msg-actions");
+  if (!actionsEl) return;
+  actionsEl.innerHTML = "";
+  
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "msg-btn";
+  copyBtn.innerHTML = "📋 複製";
+  copyBtn.title = "複製內容";
+  copyBtn.onclick = () => {
+    const textToCopy = rawText.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || rawText;
+    navigator.clipboard.writeText(textToCopy);
+    copyBtn.innerHTML = "✅ 已複製";
+    setTimeout(() => { copyBtn.innerHTML = "📋 複製"; }, 1500);
+  };
+  actionsEl.appendChild(copyBtn);
+  
+  if (role === "bot") {
+    const regenBtn = document.createElement("button");
+    regenBtn.className = "msg-btn";
+    regenBtn.innerHTML = "🔄 重新生成";
+    regenBtn.title = "重新生成此回答";
+    regenBtn.onclick = () => {
+      if (busy || !activeModel) return;
+      msgEl.remove();
+      while (history.length > 0 && history[history.length - 1].role !== "user") {
+        history.pop();
+      }
+      if (history.length === 0) return;
+      send(false, true);
+    };
+    actionsEl.appendChild(regenBtn);
+    
+    if ('speechSynthesis' in window) {
+      const speakBtn = document.createElement("button");
+      speakBtn.className = "msg-btn";
+      speakBtn.innerHTML = "🔊 朗讀";
+      speakBtn.title = "朗讀此訊息";
+      speakBtn.onclick = () => {
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+          speakBtn.innerHTML = "🔊 朗讀";
+          return;
+        }
+        const cleanText = rawText.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<[^>]*>?/gm, '').replace(/[\*\#\`\_]/g, '').replace(/!\[.*?\]\(.*?\)/g, '');
+        const utt = new SpeechSynthesisUtterance(cleanText);
+        speakWithBestVoice(utt);
+        speakBtn.innerHTML = "⏹ 停止";
+        utt.onend = () => { speakBtn.innerHTML = "🔊 朗讀"; };
+        utt.onerror = () => { speakBtn.innerHTML = "🔊 朗讀"; };
+      };
+      actionsEl.appendChild(speakBtn);
+    }
+  } else if (role === "user") {
+    const editBtn = document.createElement("button");
+    editBtn.className = "msg-btn";
+    editBtn.innerHTML = "✏️ 編輯";
+    editBtn.title = "編輯此提示詞並重試";
+    editBtn.onclick = () => {
+      $("input").value = rawText;
+      $("input").dispatchEvent(new Event("input"));
+      $("input").focus();
+    };
+    actionsEl.appendChild(editBtn);
+  }
+}
+
 function addMsg(role, text) {
   const w = document.createElement("div");
   w.className = "msg " + (role === "user" ? "user" : "bot");
-  w.innerHTML = '<div class="avatar"></div><div class="bubble"></div>';
-  w.querySelector(".avatar").textContent = role === "user" ? "YOU" : "AI";
-  w.querySelector(".bubble").innerHTML = md(text);
+  w.innerHTML = `
+    <div class="avatar">${role === "user" ? "YOU" : "AI"}</div>
+    <div class="msg-body">
+      <div class="bubble">${md(text)}</div>
+      <div class="msg-actions"></div>
+    </div>
+  `;
   $("chat").appendChild(w);
   $("chat").scrollTop = $("chat").scrollHeight;
-  return w.querySelector(".bubble");
+  const bubble = w.querySelector(".bubble");
+  bubble._rawText = text;
+  if (role === "user") {
+    attachMsgActions(w, "user", text);
+  }
+  return bubble;
 }
+
+function renderMarkdownBody(text) {
+  if (!text) return "";
+  let normalized = text;
+  const codeFenceCount = (normalized.match(/```/g) || []).length;
+  if (codeFenceCount % 2 !== 0) {
+    normalized += "\n```";
+  }
+
+  const codeBlocks = [];
+  let processed = normalized.replace(/```(\w*)\r?\n([\s\S]*?)```/g, function (_, lang, code) {
+    const id = codeBlocks.length;
+    const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    codeBlocks.push(
+      `<div class="code-box"><div class="code-head"><span>${lang || 'code'}</span><button class="code-copy" onclick="navigator.clipboard.writeText(this.closest('.code-box').querySelector('code').innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',2000)">Copy</button></div><pre><code>${escaped}</code></pre></div>`
+    );
+    return `\x00CODE_${id}\x00`;
+  });
+
+  const inlineCodes = [];
+  processed = processed.replace(/`([^`\r\n]+)`/g, function (_, code) {
+    const id = inlineCodes.length;
+    const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    inlineCodes.push(`<code>${escaped}</code>`);
+    return `\x00INLINE_${id}\x00`;
+  });
+
+  processed = processed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // Images
+  processed = processed.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<img class="md-img" src="$2" alt="$1" title="$1" loading="lazy" onclick="window.open(this.src,\'_blank\')" onerror="this.outerHTML=\'<span style=\\\'color:#ff7b72;font-size:12px;\\\'>⚠️ 圖片載入失敗</span>\'">');
+
+  // Links
+  processed = processed.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Headers
+  processed = processed.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+  processed = processed.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  processed = processed.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  processed = processed.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+  // Blockquotes
+  processed = processed.replace(/^>\s?(.*$)/gim, '<blockquote>$1</blockquote>');
+
+  // Horizontal rules
+  processed = processed.replace(/^(?:---|___|\*\*\*)$/gim, '<hr class="md-hr">');
+
+  // Tables
+  processed = processed.replace(/((?:\|[^\n\r]+\|\r?\n)+)/g, function (tableStr) {
+    const lines = tableStr.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2 || !lines[1].includes("---")) return tableStr;
+    const headers = lines[0].split("|").slice(1, -1).map(c => c.trim());
+    let html = '<div class="table-wrap"><table class="md-table"><thead><tr>';
+    headers.forEach(h => { html += `<th>${h}</th>`; });
+    html += '</tr></thead><tbody>';
+    for (let i = 2; i < lines.length; i++) {
+      const cols = lines[i].split("|").slice(1, -1).map(c => c.trim());
+      if (cols.length === 0) continue;
+      html += '<tr>';
+      cols.forEach(c => { html += `<td>${c}</td>`; });
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
+  });
+
+  // Lists
+  processed = processed.replace(/^[\*\-]\s+(.*$)/gim, '<li>$1</li>');
+  processed = processed.replace(/^\d+\.\s+(.*$)/gim, '<li>$1</li>');
+
+  // Bold & Italic
+  processed = processed.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  processed = processed.replace(/\*([^*\n]+)\*/g, '<i>$1</i>');
+  processed = processed.replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
+
+  // Restore tokens
+  processed = processed.replace(/\x00INLINE_(\d+)\x00/g, (_, id) => inlineCodes[id]);
+  processed = processed.replace(/\x00CODE_(\d+)\x00/g, (_, id) => codeBlocks[id]);
+
+  return processed;
+}
+
 function md(t) {
-  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/```(\w*)\n([\s\S]*?)```/g, function (_, l, c) { 
-      return `<div class="code-box"><div class="code-head"><span>${l||'code'}</span><button class="code-copy" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',2000)">Copy</button></div><pre><code>${c}</code></pre></div>`; 
-    })
-    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  if (!t) return "";
+  let thinkHtml = "";
+  let mainText = t;
+
+  if (mainText.includes("<think>")) {
+    const thinkParts = mainText.split("<think>");
+    const beforeThink = thinkParts[0];
+    const afterThink = thinkParts.slice(1).join("<think>");
+    if (afterThink.includes("</think>")) {
+      const [thinkBody, ...rest] = afterThink.split("</think>");
+      const remaining = rest.join("</think>");
+      thinkHtml = `<details class="think-box"><summary class="think-summary"><span>💭 思考過程 (點擊展開/收合)</span></summary><div class="think-body">${renderMarkdownBody(thinkBody.trim())}</div></details>`;
+      mainText = (beforeThink ? beforeThink + "\n" : "") + remaining.trim();
+    } else {
+      thinkHtml = `<details class="think-box" open><summary class="think-summary"><span>💭 思考中...</span></summary><div class="think-body">${renderMarkdownBody(afterThink.trim())}</div></details>`;
+      mainText = beforeThink.trim();
+    }
+  }
+
+  const renderedMain = renderMarkdownBody(mainText);
+  return (thinkHtml ? thinkHtml + (renderedMain ? "<div class='think-divider'></div>" : "") : "") + renderedMain;
 }
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -832,8 +1066,20 @@ $("pullBtn").onclick = pullModel;
 $("pullCancel").onclick = () => { if (pullAbort) pullAbort.abort(); };
 $("pullName").addEventListener("keydown", e => { if (e.key === "Enter") pullModel(); });
 $("refresh").onclick = () => { log("INFO", "Refreshing model list..."); loadModels(); };
-$("send").onclick = send;
-$("clear").onclick = () => { history = [{ role: "system", content: "隢?敹蝙?函?擃葉??蝑lease always answer in Traditional Chinese." }]; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
+$("send").onclick = () => send();
+$("stopBtn").onclick = () => {
+  if (chatAbort) {
+    chatAbort.abort();
+    log("WARN", "Chat generation stopped by user");
+  }
+};
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape" && busy && chatAbort) {
+    chatAbort.abort();
+    log("WARN", "Chat generation stopped via Escape key");
+  }
+});
+$("clear").onclick = () => { history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }]; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
 $("clearLog").onclick = () => $("logs").innerHTML = "";
 $("copyLog").onclick = () => {
   navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
