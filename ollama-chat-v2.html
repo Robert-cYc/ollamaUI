@@ -147,6 +147,38 @@
   #setupOverlay p { color:#8b949e; font-size:13px; line-height:1.6; margin-bottom:14px; }
   #fixCmd { background:#0d1117; border:1px solid #30363d; padding:12px; border-radius:8px;
     font-size:12.5px; overflow-x:auto; font-family:ui-monospace,Consolas,monospace; }
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(1, 4, 9, 0.85);
+    backdrop-filter: blur(6px); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .hw-dialog { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 840px;
+    max-width: 95vw; box-shadow: 0 16px 36px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; animation: fadeInScale 0.2s ease-out; }
+  @keyframes fadeInScale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  .hw-head { padding: 12px 18px; background: #0d1117; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; display: inline-block; box-shadow: 0 0 8px #3fb950; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+  .time-range-group { display: flex; background: #21262d; border-radius: 6px; padding: 2px; border: 1px solid #30363d; }
+  .range-btn { background: transparent; border: none; color: #8b949e; font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .range-btn.active { background: #30363d; color: #e6edf3; font-weight: 600; }
+  .close-btn { background: transparent; border: none; color: #8b949e; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .close-btn:hover { background: #30363d; color: #ff7b72; }
+  .hw-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-height: 85vh; overflow-y: auto; }
+  .hw-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .hw-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .hw-card-title { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #8b949e; font-weight: 600; }
+  .hw-sub-val { font-size: 12px; color: #ffa657; font-family: ui-monospace, monospace; }
+  .hw-card-val { font-size: 26px; font-weight: 700; color: #e6edf3; font-family: ui-monospace, monospace; }
+  .hw-bar-bg { width: 100%; height: 5px; background: #21262d; border-radius: 3px; overflow: hidden; }
+  .hw-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+  .hw-card-footer { display: flex; justify-content: space-between; font-size: 10.5px; color: #6e7681; margin-top: 2px; }
+  .hw-card-footer b { color: #8b949e; }
+  .hw-chart-container { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .hw-chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .hw-legend { display: flex; gap: 12px; font-size: 11px; color: #8b949e; }
+  .hw-legend label { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+  .hw-chart-tooltip { position: absolute; pointer-events: none; background: rgba(22, 27, 34, 0.95); border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-family: ui-monospace, monospace; color: #e6edf3; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; white-space: nowrap; }
+  .hw-sys-specs { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 8px 12px; font-size: 11.5px; color: #8b949e; font-family: ui-monospace, monospace; line-height: 1.5; }
+  #hwMonitor { cursor: pointer; transition: all 0.2s ease; user-select: none; }
+  #hwMonitor:hover { background: #161b22 !important; border-color: #58a6ff !important; box-shadow: 0 0 10px rgba(88,166,255,0.2); }
 </style>
 </head>
 <body>
@@ -167,7 +199,8 @@
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
   <span id="tokenCount" style="margin-left: 12px; font-size: 13px; color: #8b949e;">Token Used: 0</span>
   <span class="spacer"></span>
-  <span id="hwMonitor" style="font-size: 13px; display: flex; gap: 12px; color: #8b949e; font-family: ui-monospace, monospace; background: #0d1117; padding: 4px 12px; border-radius: 6px; border: 1px solid #30363d;">
+  <span id="hwMonitor" title="點擊開啟即時效能儀表板 (Click to open Real-time Performance Dashboard)" style="font-size: 13px; display: flex; gap: 10px; align-items: center; color: #8b949e; font-family: ui-monospace, monospace; background: #0d1117; padding: 4px 12px; border-radius: 6px; border: 1px solid #30363d;">
+    <span style="font-size:12px;">📈</span>
     <span title="CPU Usage">CPU: <span id="hwCpu" style="color:#e6edf3;font-weight:600">--%</span></span>
     <span title="GPU Usage">GPU: <span id="hwGpu" style="color:#e6edf3;font-weight:600">--%</span></span>
     <span title="RAM Usage">RAM: <span id="hwRam" style="color:#e6edf3;font-weight:600">--%</span></span>
@@ -214,6 +247,91 @@ ollama serve</pre>
       <button id="copyFix" class="primary">Copy command</button>
       <button id="retryNow">Retry now</button>
       <span id="retryTick" style="color:#6e7681;font-size:12px;">auto-retry in 3s...</span>
+    </div>
+  </div>
+</div>
+
+<div id="hwModal" class="modal-backdrop">
+  <div class="hw-dialog">
+    <div class="hw-head">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:16px;">📈</span>
+        <h2 style="font-size:15px; font-weight:600;">System Performance Monitor</h2>
+        <span class="live-dot" title="Live update: 1s"></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="time-range-group">
+          <button class="range-btn active" data-range="60">60s</button>
+          <button class="range-btn" data-range="120">2m</button>
+          <button class="range-btn" data-range="300">5m</button>
+        </div>
+        <button id="closeHwModal" class="close-btn" title="Close (Esc)">✕</button>
+      </div>
+    </div>
+    
+    <div class="hw-body">
+      <div class="hw-cards">
+        <div class="hw-card" id="cardCpu">
+          <div class="hw-card-title">
+            <span>⚡ CPU Total</span>
+            <span id="cardCpuTemp" class="hw-sub-val">--°C</span>
+          </div>
+          <div class="hw-card-val" id="cardCpuVal">--%</div>
+          <div class="hw-bar-bg"><div id="cardCpuBar" class="hw-bar-fill" style="background:#58a6ff; width:0%;"></div></div>
+          <div class="hw-card-footer">
+            <span>Min: <b id="cardCpuMin">--%</b></span>
+            <span>Avg: <b id="cardCpuAvg">--%</b></span>
+            <span>Max: <b id="cardCpuMax">--%</b></span>
+          </div>
+        </div>
+
+        <div class="hw-card" id="cardGpu">
+          <div class="hw-card-title">
+            <span>🎮 GPU Core</span>
+            <span id="cardGpuTemp" class="hw-sub-val">--°C</span>
+          </div>
+          <div class="hw-card-val" id="cardGpuVal">--%</div>
+          <div class="hw-bar-bg"><div id="cardGpuBar" class="hw-bar-fill" style="background:#3fb950; width:0%;"></div></div>
+          <div class="hw-card-footer">
+            <span>Min: <b id="cardGpuMin">--%</b></span>
+            <span>Avg: <b id="cardGpuAvg">--%</b></span>
+            <span>Max: <b id="cardGpuMax">--%</b></span>
+          </div>
+        </div>
+
+        <div class="hw-card" id="cardRam">
+          <div class="hw-card-title">
+            <span>💾 Memory (RAM)</span>
+            <span class="hw-sub-val">Load</span>
+          </div>
+          <div class="hw-card-val" id="cardRamVal">--%</div>
+          <div class="hw-bar-bg"><div id="cardRamBar" class="hw-bar-fill" style="background:#bc8cff; width:0%;"></div></div>
+          <div class="hw-card-footer">
+            <span>Min: <b id="cardRamMin">--%</b></span>
+            <span>Avg: <b id="cardRamAvg">--%</b></span>
+            <span>Max: <b id="cardRamMax">--%</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hw-chart-container">
+        <div class="hw-chart-header">
+          <span style="font-size:12px; color:#8b949e; font-weight:600;">Real-Time Activity Trends</span>
+          <div class="hw-legend">
+            <label><input type="checkbox" id="showCpu" checked> <span style="color:#58a6ff;">● CPU %</span></label>
+            <label><input type="checkbox" id="showGpu" checked> <span style="color:#3fb950;">● GPU %</span></label>
+            <label><input type="checkbox" id="showRam" checked> <span style="color:#bc8cff;">● RAM %</span></label>
+            <label><input type="checkbox" id="showCpuTemp"> <span style="color:#ffa657;">┄ CPU °C</span></label>
+            <label><input type="checkbox" id="showGpuTemp"> <span style="color:#ff7b72;">┄ GPU °C</span></label>
+          </div>
+        </div>
+        <div style="position:relative; width:100%; height:260px;">
+          <canvas id="hwCanvas" style="width:100%; height:100%; display:block;"></canvas>
+          <div id="hwTooltip" class="hw-chart-tooltip" style="display:none;"></div>
+        </div>
+      </div>
+      
+      <div id="hwSysSpecs" class="hw-sys-specs" style="display:none;"></div>
     </div>
   </div>
 </div>
@@ -1161,6 +1279,268 @@ pullName.addEventListener("blur", () => suggestList.style.display = "none");
 pullName.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pullBtn").click(); });
 
 let hwTrend = [];
+let hwDashboardOpen = false;
+let hwTimeRange = 60;
+let hwHoverIndex = null;
+
+function resizeHwCanvas() {
+  const canvas = $("hwCanvas");
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+}
+
+function renderHwDashboard() {
+  if (!hwDashboardOpen) return;
+  
+  if (hwTrend.length > 0) {
+    const last = hwTrend[hwTrend.length - 1];
+    const dataSlice = hwTrend.slice(-hwTimeRange);
+    
+    // CPU Card
+    const cpuVal = parseFloat(last.cpu) || 0;
+    $("cardCpuVal").textContent = last.cpu !== "--" ? `${last.cpu}%` : "--%";
+    $("cardCpuBar").style.width = `${Math.min(100, Math.max(0, cpuVal))}%`;
+    $("cardCpuTemp").textContent = last.cpuTemp !== "--" ? `${last.cpuTemp}°C` : "";
+    const cpuNums = dataSlice.map(d => parseFloat(d.cpu)).filter(v => !isNaN(v));
+    if (cpuNums.length) {
+      $("cardCpuMin").textContent = `${Math.min(...cpuNums).toFixed(1)}%`;
+      $("cardCpuMax").textContent = `${Math.max(...cpuNums).toFixed(1)}%`;
+      $("cardCpuAvg").textContent = `${(cpuNums.reduce((a, b) => a + b, 0) / cpuNums.length).toFixed(1)}%`;
+    }
+    
+    // GPU Card
+    const gpuVal = parseFloat(last.gpu) || 0;
+    $("cardGpuVal").textContent = last.gpu !== "--" ? `${last.gpu}%` : "--%";
+    $("cardGpuBar").style.width = `${Math.min(100, Math.max(0, gpuVal))}%`;
+    $("cardGpuTemp").textContent = last.gpuTemp !== "--" ? `${last.gpuTemp}°C` : "";
+    const gpuNums = dataSlice.map(d => parseFloat(d.gpu)).filter(v => !isNaN(v));
+    if (gpuNums.length) {
+      $("cardGpuMin").textContent = `${Math.min(...gpuNums).toFixed(1)}%`;
+      $("cardGpuMax").textContent = `${Math.max(...gpuNums).toFixed(1)}%`;
+      $("cardGpuAvg").textContent = `${(gpuNums.reduce((a, b) => a + b, 0) / gpuNums.length).toFixed(1)}%`;
+    }
+
+    // RAM Card
+    const ramVal = parseFloat(last.ram) || 0;
+    $("cardRamVal").textContent = last.ram !== "--" ? `${last.ram}%` : "--%";
+    $("cardRamBar").style.width = `${Math.min(100, Math.max(0, ramVal))}%`;
+    const ramNums = dataSlice.map(d => parseFloat(d.ram)).filter(v => !isNaN(v));
+    if (ramNums.length) {
+      $("cardRamMin").textContent = `${Math.min(...ramNums).toFixed(1)}%`;
+      $("cardRamMax").textContent = `${Math.max(...ramNums).toFixed(1)}%`;
+      $("cardRamAvg").textContent = `${(ramNums.reduce((a, b) => a + b, 0) / ramNums.length).toFixed(1)}%`;
+    }
+  }
+
+  // Draw chart
+  const canvas = $("hwCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  if (W <= 0 || H <= 0) return;
+
+  const padLeft = 40, padRight = 15, padTop = 15, padBottom = 25;
+  const plotW = W - padLeft - padRight;
+  const plotH = H - padTop - padBottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(48, 54, 61, 0.4)";
+  ctx.fillStyle = "#8b949e";
+  ctx.font = "10px ui-monospace, Consolas, monospace";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+
+  for (let i = 0; i <= 4; i++) {
+    const yVal = i * 25;
+    const y = padTop + plotH - (i / 4) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(padLeft + plotW, y);
+    ctx.stroke();
+    ctx.fillText(`${yVal}%`, padLeft - 6, y);
+  }
+
+  const dataSlice = hwTrend.slice(-hwTimeRange);
+  if (dataSlice.length < 2) {
+    ctx.fillStyle = "#6e7681";
+    ctx.textAlign = "center";
+    ctx.fillText("Gathering performance data...", padLeft + plotW / 2, padTop + plotH / 2);
+    return;
+  }
+
+  const n = dataSlice.length;
+  const getX = i => padLeft + (i / (hwTimeRange - 1)) * plotW;
+  const getY = val => padTop + plotH - (Math.min(100, Math.max(0, val)) / 100) * plotH;
+
+  const series = [
+    { key: "cpu", show: $("showCpu").checked, color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
+    { key: "gpu", show: $("showGpu").checked, color: "#3fb950", fill: "rgba(63,185,80,0.12)" },
+    { key: "ram", show: $("showRam").checked, color: "#bc8cff", fill: "rgba(188,140,255,0.12)" },
+    { key: "cpuTemp", show: $("showCpuTemp").checked, color: "#ffa657", dashed: true },
+    { key: "gpuTemp", show: $("showGpuTemp").checked, color: "#ff7b72", dashed: true }
+  ];
+
+  series.forEach(s => {
+    if (!s.show) return;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const v = parseFloat(dataSlice[i][s.key]);
+      if (!isNaN(v)) pts.push({ x: getX(i), y: getY(v), v });
+    }
+    if (pts.length < 2) return;
+
+    if (s.fill) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, padTop + plotH);
+      pts.forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.lineTo(pts[pts.length - 1].x, padTop + plotH);
+      ctx.closePath();
+      ctx.fillStyle = s.fill;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    if (s.dashed) ctx.setLineDash([4, 4]);
+    else ctx.setLineDash([]);
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 1.8;
+    pts.forEach((p, idx) => {
+      if (idx === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const lastPt = pts[pts.length - 1];
+    ctx.fillStyle = s.color;
+    ctx.beginPath();
+    ctx.arc(lastPt.x, lastPt.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = "#6e7681";
+  ctx.textAlign = "left";
+  ctx.fillText(`-${hwTimeRange}s`, padLeft, H - 8);
+  ctx.textAlign = "right";
+  ctx.fillText("now", padLeft + plotW, H - 8);
+
+  if (hwHoverIndex !== null && hwHoverIndex >= 0 && hwHoverIndex < n) {
+    const item = dataSlice[hwHoverIndex];
+    const hoverX = getX(hwHoverIndex);
+
+    ctx.beginPath();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = "rgba(230, 237, 243, 0.4)";
+    ctx.moveTo(hoverX, padTop);
+    ctx.lineTo(hoverX, padTop + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const tooltip = $("hwTooltip");
+    tooltip.style.display = "block";
+    tooltip.innerHTML = `
+      <div style="font-weight:700; color:#c9d1d9; margin-bottom:4px; border-bottom:1px solid #30363d; padding-bottom:2px;">🕒 ${item.time}</div>
+      <div style="color:#58a6ff;">CPU: <b>${item.cpu}%</b> ${item.cpuTemp !== "--" ? `(${item.cpuTemp}°C)` : ""}</div>
+      <div style="color:#3fb950;">GPU: <b>${item.gpu}%</b> ${item.gpuTemp !== "--" ? `(${item.gpuTemp}°C)` : ""}</div>
+      <div style="color:#bc8cff;">RAM: <b>${item.ram}%</b></div>
+    `;
+    const tipW = 140;
+    const posX = hoverX + 15 + tipW > W ? hoverX - tipW - 15 : hoverX + 15;
+    tooltip.style.left = `${posX}px`;
+    tooltip.style.top = `25px`;
+  } else {
+    $("hwTooltip").style.display = "none";
+  }
+}
+
+function openHwDashboard() {
+  hwDashboardOpen = true;
+  $("hwModal").classList.add("open");
+  resizeHwCanvas();
+  renderHwDashboard();
+  
+  if (typeof window.sysinfo_data !== "undefined" && window.sysinfo_data) {
+    const specsEl = $("hwSysSpecs");
+    let os = "", cpu = "", model = "", ram = "";
+    window.sysinfo_data.split("\n").forEach(line => {
+      if (line.startsWith("OS Name:")) os = line.replace("OS Name:", "").trim();
+      if (line.includes("GenuineIntel") || line.includes("AMD") || line.startsWith("Processor(s):")) {
+        if (!cpu && line.includes(":")) cpu = line.split(":")[1].trim();
+      }
+      if (line.startsWith("System Model:")) model = line.replace("System Model:", "").trim();
+      if (line.startsWith("Total Physical Memory:")) ram = line.replace("Total Physical Memory:", "").trim();
+    });
+    if (os || cpu || model) {
+      specsEl.style.display = "block";
+      specsEl.innerHTML = `💻 <b>System Specs:</b> ${model ? model + " | " : ""}${os ? os + " | " : ""}${cpu ? cpu + " | " : ""}${ram ? "Total RAM: " + ram : ""}`;
+    }
+  }
+}
+
+function closeHwDashboard() {
+  hwDashboardOpen = false;
+  $("hwModal").classList.remove("open");
+  $("hwTooltip").style.display = "none";
+}
+
+$("hwMonitor").onclick = openHwDashboard;
+$("closeHwModal").onclick = closeHwDashboard;
+$("hwModal").onclick = e => { if (e.target === $("hwModal")) closeHwDashboard(); };
+
+document.querySelectorAll(".range-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    hwTimeRange = parseInt(btn.dataset.range, 10);
+    renderHwDashboard();
+  };
+});
+
+["showCpu", "showGpu", "showRam", "showCpuTemp", "showGpuTemp"].forEach(id => {
+  $(id).onchange = () => renderHwDashboard();
+});
+
+$("hwCanvas").addEventListener("mousemove", e => {
+  const canvas = $("hwCanvas");
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const padLeft = 40, padRight = 15;
+  const plotW = rect.width - padLeft - padRight;
+  const dataSlice = hwTrend.slice(-hwTimeRange);
+  if (dataSlice.length < 2) return;
+
+  const relX = mouseX - padLeft;
+  if (relX < 0 || relX > plotW) {
+    hwHoverIndex = null;
+  } else {
+    const fraction = relX / plotW;
+    const idx = Math.round(fraction * (hwTimeRange - 1));
+    hwHoverIndex = Math.min(dataSlice.length - 1, Math.max(0, idx));
+  }
+  renderHwDashboard();
+});
+
+$("hwCanvas").addEventListener("mouseleave", () => {
+  hwHoverIndex = null;
+  renderHwDashboard();
+});
+
+window.addEventListener("resize", () => {
+  if (hwDashboardOpen) {
+    resizeHwCanvas();
+    renderHwDashboard();
+  }
+});
+
 async function updateHardwareStatus() {
   try {
     const res = await fetch("http://localhost:8085/data.json");
@@ -1203,6 +1583,7 @@ async function updateHardwareStatus() {
     
     hwTrend.push({ time: new Date().toLocaleTimeString(), cpu, gpu, ram, cpuTemp, gpuTemp });
     if (hwTrend.length > 300) hwTrend.shift();
+    if (hwDashboardOpen) renderHwDashboard();
   } catch (e) {
     // Silently fail if LibreHardwareMonitor is not running
   }
