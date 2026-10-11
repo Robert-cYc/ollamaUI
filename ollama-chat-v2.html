@@ -381,7 +381,7 @@ ollama serve</pre>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
 let activeModel = null, history = [], busy = false, autoScroll = true, totalTokens = 0;
-let autoSpeak = true, chatAbort = null;
+let autoSpeak = true, chatAbort = null, isAgentSpeaking = false, currentUtterance = null;
 
 function updateSendStopUI(isBusy) {
   if (isBusy) {
@@ -397,6 +397,14 @@ function updateSendStopUI(isBusy) {
 }
 
 function speakWithBestVoice(utt, voices = null) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+
+  // 助理發話前立即暫停/停止麥克風，防止收錄自己的聲音
+  if (typeof recognition !== "undefined" && recognition && isRecording) {
+    try { recognition.stop(); } catch (e) {}
+  }
+
   const availableVoices = voices || window.speechSynthesis.getVoices();
   const zhVoices = availableVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn'));
   let bestVoice = zhVoices.find(v => v.name.includes('Natural') || v.name.includes('Online'));
@@ -405,6 +413,34 @@ function speakWithBestVoice(utt, voices = null) {
   if (bestVoice) utt.voice = bestVoice;
   utt.lang = 'zh-TW';
   utt.rate = 1.0;
+
+  currentUtterance = utt;
+  isAgentSpeaking = true;
+
+  let ended = false;
+  const onSpeechFinish = () => {
+    if (ended) return;
+    ended = true;
+    isAgentSpeaking = false;
+    currentUtterance = null;
+    // 回音抑制緩衝期 (400ms)：等待音響喇叭殘響衰減，再安全重啟麥克風
+    setTimeout(() => {
+      const isSpeakingNow = isAgentSpeaking || (window.speechSynthesis && window.speechSynthesis.speaking);
+      if (!isSpeakingNow && typeof autoMic !== "undefined" && autoMic && typeof recognition !== "undefined" && !isRecording && !busy) {
+        try { recognition.start(); } catch (e) {}
+      }
+    }, 400);
+  };
+
+  utt.addEventListener('start', () => {
+    isAgentSpeaking = true;
+    if (typeof recognition !== "undefined" && recognition && isRecording) {
+      try { recognition.stop(); } catch (e) {}
+    }
+  });
+  utt.addEventListener('end', onSpeechFinish);
+  utt.addEventListener('error', onSpeechFinish);
+
   window.speechSynthesis.speak(utt);
 }
 
@@ -661,6 +697,10 @@ async function psCheck() {
 }
 
 async function send(isToolRetry = false, isRegenerate = false) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    isAgentSpeaking = false;
+  }
   if (!isToolRetry && !isRegenerate) {
     const text = $("input").value.trim();
     if (!text || busy || !activeModel) return;
@@ -683,7 +723,7 @@ async function send(isToolRetry = false, isRegenerate = false) {
 
   const bubble = addMsg("bot", isToolRetry ? "*(查詢/調用工具中...)*\n" : "");
   bubble.classList.add("cursor");
-  let reply = "", chunks = 0, ttft = null, toolCalls = null;
+  let reply = "", chunks = 0, ttft = null, toolCalls = null, speechQueued = false;
   const t0 = performance.now();
   chatAbort = new AbortController();
   
@@ -901,14 +941,18 @@ async function send(isToolRetry = false, isRegenerate = false) {
       
       if (autoSpeak && 'speechSynthesis' in window) {
         const textToSpeak = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<[^>]*>?/gm, '').replace(/[\*\#\`\_]/g, '').replace(/!\[.*?\]\(.*?\)/g, '');
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        let voices = window.speechSynthesis.getVoices();
-        if (voices.length === 0) {
-          window.speechSynthesis.onvoiceschanged = () => {
-            speakWithBestVoice(utterance, window.speechSynthesis.getVoices());
-          };
-        } else {
-          speakWithBestVoice(utterance, voices);
+        if (textToSpeak.trim()) {
+          speechQueued = true;
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          let voices = window.speechSynthesis.getVoices();
+          if (voices.length === 0) {
+            window.speechSynthesis.onvoiceschanged = () => {
+              window.speechSynthesis.onvoiceschanged = null;
+              speakWithBestVoice(utterance, window.speechSynthesis.getVoices());
+            };
+          } else {
+            speakWithBestVoice(utterance, voices);
+          }
         }
       }
     }
@@ -936,7 +980,8 @@ async function send(isToolRetry = false, isRegenerate = false) {
       attachMsgActions(bubble.closest('.msg'), 'bot', reply || bubble._rawText || bubble.innerText);
       if ($("micBtn")) {
         $("micBtn").disabled = false;
-        if (typeof autoMic !== "undefined" && autoMic && typeof recognition !== "undefined" && !isRecording) {
+        const isSpeakingNow = isAgentSpeaking || (window.speechSynthesis && window.speechSynthesis.speaking);
+        if (typeof autoMic !== "undefined" && autoMic && typeof recognition !== "undefined" && !isRecording && !isSpeakingNow && !speechQueued) {
           try { recognition.start(); } catch (e) {}
         }
       }
@@ -987,6 +1032,7 @@ function attachMsgActions(msgEl, role, rawText) {
       speakBtn.onclick = () => {
         if (window.speechSynthesis.speaking) {
           window.speechSynthesis.cancel();
+          isAgentSpeaking = false;
           speakBtn.innerHTML = "🔊 朗讀";
           return;
         }
@@ -994,8 +1040,8 @@ function attachMsgActions(msgEl, role, rawText) {
         const utt = new SpeechSynthesisUtterance(cleanText);
         speakWithBestVoice(utt);
         speakBtn.innerHTML = "⏹ 停止";
-        utt.onend = () => { speakBtn.innerHTML = "🔊 朗讀"; };
-        utt.onerror = () => { speakBtn.innerHTML = "🔊 朗讀"; };
+        utt.addEventListener('end', () => { speakBtn.innerHTML = "🔊 朗讀"; });
+        utt.addEventListener('error', () => { speakBtn.innerHTML = "🔊 朗讀"; });
       };
       actionsEl.appendChild(speakBtn);
     }
@@ -1151,8 +1197,12 @@ if (SpeechRecognition) {
       autoMic = false;
       recognition.stop();
     } else {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        isAgentSpeaking = false;
+      }
       autoMic = true;
-      recognition.start();
+      try { recognition.start(); } catch (e) {}
     }
   };
   
@@ -1160,6 +1210,10 @@ if (SpeechRecognition) {
   let autoSendTimer = null;
 
   recognition.onstart = () => {
+    if (isAgentSpeaking || (window.speechSynthesis && window.speechSynthesis.speaking)) {
+      try { recognition.stop(); } catch (e) {}
+      return;
+    }
     isRecording = true;
     isVoiceSending = false;
     if (autoSendTimer) clearTimeout(autoSendTimer);
@@ -1168,6 +1222,7 @@ if (SpeechRecognition) {
   };
   
   recognition.onresult = (e) => {
+    if (isAgentSpeaking || (window.speechSynthesis && window.speechSynthesis.speaking)) return;
     if (isVoiceSending) return;
     if (autoSendTimer) clearTimeout(autoSendTimer);
 
@@ -1230,14 +1285,32 @@ $("stopBtn").onclick = () => {
     chatAbort.abort();
     log("WARN", "使用者已中止生成 (Generation stopped by user)");
   }
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    isAgentSpeaking = false;
+  }
 };
 window.addEventListener("keydown", e => {
-  if (e.key === "Escape" && busy && chatAbort) {
-    chatAbort.abort();
-    log("WARN", "透過 Esc 鍵中止生成 (Generation stopped via Esc)");
+  if (e.key === "Escape") {
+    if (busy && chatAbort) {
+      chatAbort.abort();
+      log("WARN", "透過 Esc 鍵中止生成 (Generation stopped via Esc)");
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      isAgentSpeaking = false;
+    }
   }
 });
-$("clear").onclick = () => { history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }]; $("chat").innerHTML = '<div class="empty">History cleared.</div>'; log("INFO", "Chat history cleared"); };
+$("clear").onclick = () => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    isAgentSpeaking = false;
+  }
+  history = [{ role: "system", content: "請務必使用繁體中文回答。Please always answer in Traditional Chinese." }];
+  $("chat").innerHTML = '<div class="empty">History cleared.</div>';
+  log("INFO", "Chat history cleared");
+};
 $("clearLog").onclick = () => $("logs").innerHTML = "";
 $("copyLog").onclick = () => {
   navigator.clipboard.writeText([...$("logs").children].map(r => r.innerText.replace(/\s+/g, " ")).join("\n"));
@@ -1254,7 +1327,10 @@ if ($("speakerBtn")) {
     autoSpeak = !autoSpeak;
     $("speakerBtn").innerHTML = autoSpeak ? '&#128266;' : '&#128263;';
     $("speakerBtn").style.color = autoSpeak ? '#7ee787' : '#8b949e';
-    if (!autoSpeak) window.speechSynthesis.cancel();
+    if (!autoSpeak && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      isAgentSpeaking = false;
+    }
   };
 }
 
