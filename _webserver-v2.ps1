@@ -76,6 +76,15 @@ while ($listener.IsListening) {
             $ctx.Response.ContentLength64 = $b.Length
             $ctx.Response.OutputStream.Write($b, 0, $b.Length)
             $handled = $true
+          } elseif ($ctx.Request.Url.LocalPath -eq "/api/hardware/prune") {
+            $daysVal = $ctx.Request.QueryString["days"]
+            if ([string]::IsNullOrWhiteSpace($daysVal)) { $daysVal = "7" }
+            $outJson = & python (Join-Path $Root "hw_logger.py") --prune ([int]$daysVal) | Out-String
+            $b = [Text.Encoding]::UTF8.GetBytes('{"status":"ok","message":"' + $outJson.Trim() + '"}')
+            $ctx.Response.ContentType = "application/json; charset=utf-8"
+            $ctx.Response.ContentLength64 = $b.Length
+            $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+            $handled = $true
           } elseif ($ctx.Request.HttpMethod -eq "GET") {
             $rangeVal = $ctx.Request.QueryString["range"]
             if ([string]::IsNullOrWhiteSpace($rangeVal)) { $rangeVal = "3600" }
@@ -109,6 +118,25 @@ while ($listener.IsListening) {
         if ($req.action -eq "command") { $output = Invoke-Expression $req.command | Out-String }
         elseif ($req.action -eq "read") { $output = Get-Content $req.path -Raw }
         elseif ($req.action -eq "open") { Start-Process $req.path; $output = "Opened $($req.path)" }
+        elseif ($req.action -eq "list") {
+          $targetPath = if ([string]::IsNullOrWhiteSpace($req.path)) { "." } else { $req.path }
+          $depth = if ($req.depth) { [int]$req.depth } else { 1 }
+          $items = Get-ChildItem -Path $targetPath -Depth ($depth - 1) -ErrorAction Stop | Select-Object Mode, LastWriteTime, Length, Name
+          $output = ($items | Format-Table -AutoSize | Out-String).Trim()
+          if ([string]::IsNullOrWhiteSpace($output)) { $output = "(Directory is empty)" }
+        }
+        elseif ($req.action -eq "git_status") {
+          $targetDir = if ([string]::IsNullOrWhiteSpace($req.path)) { $Root } else { $req.path }
+          Push-Location $targetDir
+          try {
+            $branch = (git branch --show-current 2>&1).Trim()
+            $status = (git status -s 2>&1).Trim()
+            $lastCommit = (git log -1 --oneline 2>&1).Trim()
+            $output = "Branch: $branch`nLast Commit: $lastCommit`nChanges:`n" + (if ($status) { $status } else { "(Working tree clean)" })
+          } finally {
+            Pop-Location
+          }
+        }
       } catch { $output = "Error: $($_.Exception.Message)" }
       $b = [Text.Encoding]::UTF8.GetBytes($output)
       $ctx.Response.ContentType = "text/plain; charset=utf-8"

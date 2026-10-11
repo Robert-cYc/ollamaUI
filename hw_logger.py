@@ -479,6 +479,30 @@ class HardwareAPIHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
+        if path in ("/api/hardware/prune", "/api/prune"):
+            days = DEFAULT_RETENTION_DAYS
+            if "days" in qs:
+                try:
+                    days = int(qs["days"][0])
+                except (ValueError, IndexError):
+                    days = DEFAULT_RETENTION_DAYS
+            deleted = prune_old_records(self.db_path, retention_days=days)
+            stats = get_stats(self.db_path)
+            res = json.dumps({
+                "status": "ok",
+                "deleted": deleted,
+                "retention_days": days,
+                "remaining": stats.get("total_records", 0),
+                "size_bytes": stats.get("size_bytes", 0),
+            }, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(res)))
+            self.end_headers()
+            self.wfile.write(res)
+            return
+
         if path in ("/api/hardware", "/api/telemetry"):
             range_sec = 3600
             if "range" in qs:
@@ -533,6 +557,34 @@ class HardwareAPIHandler(BaseHTTPRequestHandler):
                 status_code = 400
 
             self.send_response(status_code)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(res)))
+            self.end_headers()
+            self.wfile.write(res)
+            return
+
+        if path in ("/api/hardware/prune", "/api/prune"):
+            days = DEFAULT_RETENTION_DAYS
+            length = int(self.headers.get("Content-Length", 0))
+            if length > 0:
+                raw = self.rfile.read(length).decode("utf-8", errors="ignore")
+                try:
+                    body_data = json.loads(raw)
+                    if isinstance(body_data, dict) and "days" in body_data:
+                        days = int(body_data["days"])
+                except Exception:
+                    pass
+            deleted = prune_old_records(self.db_path, retention_days=days)
+            stats = get_stats(self.db_path)
+            res = json.dumps({
+                "status": "ok",
+                "deleted": deleted,
+                "retention_days": days,
+                "remaining": stats.get("total_records", 0),
+                "size_bytes": stats.get("size_bytes", 0),
+            }, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
             self._send_cors_headers()
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(res)))

@@ -199,6 +199,21 @@ def test_http_api_endpoints(temp_db: Path) -> None:
             assert resp.status == 200
             stats_res = json.loads(resp.read().decode("utf-8"))
             assert stats_res["total_records"] == 1
+
+        # Test POST /api/hardware/prune
+        prune_post_data = json.dumps({"days": 0}).encode("utf-8")
+        prune_req = urllib.request.Request(f"{base_url}/api/hardware/prune", data=prune_post_data, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(prune_req, timeout=2) as resp:
+            assert resp.status == 200
+            prune_res = json.loads(resp.read().decode("utf-8"))
+            assert prune_res["status"] == "ok"
+            assert "deleted" in prune_res
+
+        # Test GET /api/hardware/prune
+        with urllib.request.urlopen(f"{base_url}/api/hardware/prune?days=30", timeout=2) as resp:
+            assert resp.status == 200
+            prune_get_res = json.loads(resp.read().decode("utf-8"))
+            assert prune_get_res["status"] == "ok"
     finally:
         server.shutdown()
         server.server_close()

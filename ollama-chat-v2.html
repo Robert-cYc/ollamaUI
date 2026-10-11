@@ -199,6 +199,25 @@
   }
   .hw-mini-badge.alert-warn { background: rgba(210,153,34,0.2); border: 1px solid rgba(210,153,34,0.5); }
   .hw-mini-badge.alert-danger { background: rgba(255,123,114,0.22); border: 1px solid rgba(255,123,114,0.6); animation: alertGlow 1.8s infinite; }
+  .hw-alert-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-radius: 6px; font-size: 12px;
+    background: rgba(56, 139, 253, 0.1); border: 1px solid rgba(56, 139, 253, 0.3);
+    color: #58a6ff; transition: all 0.3s ease; flex-wrap: wrap; gap: 8px;
+  }
+  .hw-alert-banner.warn {
+    background: rgba(210, 153, 34, 0.15); border-color: rgba(210, 153, 34, 0.5);
+    color: #d29922; box-shadow: 0 0 10px rgba(210, 153, 34, 0.2);
+  }
+  .hw-alert-banner.danger {
+    background: rgba(255, 123, 114, 0.2); border-color: #ff7b72;
+    color: #ff7b72; box-shadow: 0 0 15px rgba(255, 123, 114, 0.4);
+    animation: alertGlow 1.8s infinite;
+  }
+  .hw-alert-banner.ok {
+    background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.25);
+    color: #3fb950;
+  }
 </style>
 </head>
 <body>
@@ -304,12 +323,22 @@ ollama serve</pre>
           <option value="5000">⏱ 5秒</option>
         </select>
         <button id="hwClearBtn" class="range-btn" style="border:1px solid #30363d; color:#ff7b72;" title="清除前端快取之歷史曲線">🗑️ 清除快取</button>
+        <button id="hwPruneBtn" class="range-btn" style="border:1px solid #30363d; color:#ffa657;" title="清理超過 N 天前的歷史數據，釋放 SQLite 資料庫空間">🧹 清理數據</button>
         <button id="hwExportBtn" class="range-btn" style="border:1px solid #30363d; color:#58a6ff; font-weight:600;" title="匯出 SQLite/快取數據為 CSV 檔案">📥 匯出 CSV</button>
         <button id="closeHwModal" class="close-btn" title="關閉視窗 (Esc)">✕</button>
       </div>
     </div>
     
     <div class="hw-body">
+      <div id="hwAlertBanner" class="hw-alert-banner ok">
+        <div id="hwAlertText" style="display:flex; align-items:center; gap:6px;">
+          <span>✅</span> <span>系統負載與溫度正常</span>
+        </div>
+        <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#8b949e; user-select:none;">
+          <input type="checkbox" id="hwNotifyToggle"> 🔔 桌面警報通知
+        </label>
+      </div>
+
       <div class="hw-cards">
         <div class="hw-card" id="cardCpu">
           <div class="hw-card-title">
@@ -744,7 +773,10 @@ async function send(isToolRetry = false, isRegenerate = false) {
     { type: "function", function: { name: "translate_text", description: "Translate text using Lingva API.", parameters: { type: "object", properties: { text: { type: "string" }, target_lang: { type: "string", description: "Language code (e.g., 'en', 'zh', 'ja')" } }, required: ["text", "target_lang"] } } },
     { type: "function", function: { name: "open_application", description: "Open a local application or file.", parameters: { type: "object", properties: { path: { type: "string", description: "Name or path of the application/file" } }, required: ["path"] } } },
     { type: "function", function: { name: "read_local_file", description: "Read contents of a local file.", parameters: { type: "object", properties: { path: { type: "string", description: "Absolute path to the file" } }, required: ["path"] } } },
-    { type: "function", function: { name: "run_command", description: "Execute a PowerShell command locally.", parameters: { type: "object", properties: { command: { type: "string", description: "The PowerShell command to run" } }, required: ["command"] } } }
+    { type: "function", function: { name: "run_command", description: "Execute a PowerShell command locally.", parameters: { type: "object", properties: { command: { type: "string", description: "The PowerShell command to run" } }, required: ["command"] } } },
+    { type: "function", function: { name: "list_directory", description: "List files and directories in a local path with file size and modification date.", parameters: { type: "object", properties: { path: { type: "string", description: "Directory path (defaults to current directory if empty)" }, depth: { type: "integer", description: "Depth of directory listing (default: 1)" } } } } },
+    { type: "function", function: { name: "git_status", description: "Check git repository status, active branch, uncommitted modified files, and recent commit history.", parameters: { type: "object", properties: { repo_path: { type: "string", description: "Path to git repository (optional)" } } } } },
+    { type: "function", function: { name: "get_hardware_alerts", description: "Check if system hardware (CPU, GPU, RAM) is currently experiencing overheating, critical temperature, or extreme compute load." } }
   ];
 
   try {
@@ -918,12 +950,33 @@ async function send(isToolRetry = false, isRegenerate = false) {
             const res = await fetch(`https://lingva.ml/api/v1/auto/${args.target_lang}/${encodeURIComponent(args.text)}`);
             history.push({ role: "tool", name: tc.function.name, content: (await res.json()).translation || "Translation failed." });
           } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
-        } else if (["open_application", "read_local_file", "run_command"].includes(tc.function.name)) {
+        } else if (tc.function.name === "get_hardware_alerts") {
+          const last = (typeof hwTrend !== "undefined" && hwTrend.length > 0) ? hwTrend[hwTrend.length - 1] : null;
+          if (!last) {
+            history.push({ role: "tool", name: tc.function.name, content: "Hardware telemetry data is currently unavailable." });
+          } else {
+            const cpuN = parseFloat(last.cpu) || 0, gpuN = parseFloat(last.gpu) || 0, ramN = parseFloat(last.ram) || 0;
+            const cpuTN = parseFloat(last.cpuTemp) || 0, gpuTN = parseFloat(last.gpuTemp) || 0;
+            const alerts = [];
+            if (cpuTN >= 82) alerts.push(`CPU OVERHEATING (${cpuTN}°C)`);
+            else if (cpuTN >= 75) alerts.push(`CPU High Temp (${cpuTN}°C)`);
+            if (gpuTN >= 82) alerts.push(`GPU OVERHEATING (${gpuTN}°C)`);
+            else if (gpuTN >= 75) alerts.push(`GPU High Temp (${gpuTN}°C)`);
+            if (cpuN >= 90) alerts.push(`CPU Extreme Load (${cpuN}%)`);
+            if (gpuN >= 90) alerts.push(`GPU Extreme Load (${gpuN}%)`);
+            if (ramN >= 90) alerts.push(`RAM Critical Usage (${ramN}%)`);
+            const statusStr = alerts.length > 0 ? "⚠️ ALERTS ACTIVE: " + alerts.join("; ") : "✅ All hardware metrics operating within normal thermal and load parameters.";
+            const diag = `Current Telemetry: CPU ${last.cpu}% (${last.cpuTemp}°C), GPU ${last.gpu}% (${last.gpuTemp}°C), RAM ${last.ram}%.\nDiagnostics: ${statusStr}`;
+            history.push({ role: "tool", name: tc.function.name, content: diag });
+          }
+        } else if (["open_application", "read_local_file", "run_command", "list_directory", "git_status"].includes(tc.function.name)) {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            const actionMap = { open_application: "open", read_local_file: "read", run_command: "command" };
+            const actionMap = { open_application: "open", read_local_file: "read", run_command: "command", list_directory: "list", git_status: "git_status" };
             const payload = { action: actionMap[tc.function.name] };
             if (tc.function.name === "run_command") payload.command = args.command;
+            else if (tc.function.name === "list_directory") { payload.path = args.path || "."; payload.depth = args.depth || 1; }
+            else if (tc.function.name === "git_status") { payload.path = args.repo_path || "."; }
             else payload.path = args.path;
             const res = await fetch("/api/run", { method: "POST", body: JSON.stringify(payload) });
             const result = await res.text();
@@ -1892,6 +1945,99 @@ if ($("hwClearBtn")) {
   };
 }
 
+if ($("hwPruneBtn")) {
+  $("hwPruneBtn").onclick = async () => {
+    const days = prompt("請輸入欲清理幾天前的歷史數據（預設為保留最近 7 天，輸入 7 即清理 7 天前之數據）：", "7");
+    if (days === null) return;
+    const daysNum = parseInt(days, 10);
+    if (isNaN(daysNum) || daysNum < 0) return alert("請輸入有效的整數天數！");
+
+    const btn = $("hwPruneBtn");
+    const origText = btn.textContent;
+    btn.textContent = "⏳ 清理中...";
+    btn.disabled = true;
+    try {
+      let res = null;
+      try {
+        res = await fetch(`/api/hardware/prune?days=${daysNum}`);
+      } catch(e) {
+        try { res = await fetch(`http://localhost:8086/api/hardware/prune?days=${daysNum}`); } catch(e2) {}
+      }
+      if (res && res.ok) {
+        const data = await res.json();
+        alert(`✅ 清理完成！\n共刪除 ${data.deleted || 0} 筆 ${daysNum} 天前之舊紀錄。\n剩餘歷史紀錄：${data.remaining != null ? data.remaining.toLocaleString() : 'N/A'} 筆。`);
+        loadHardwareHistoryFromSqlite(hwTimeRange);
+      } else {
+        alert("清理請求送出失敗或服務未就緒。");
+      }
+    } catch(err) {
+      alert("清理發生錯誤：" + err.message);
+    } finally {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
+  };
+}
+
+let lastNotificationTime = 0;
+function triggerDesktopNotification(title, body) {
+  const toggle = $("hwNotifyToggle");
+  if (!toggle || !toggle.checked) return;
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") {
+    Notification.requestPermission();
+    return;
+  }
+  if (Notification.permission !== "granted") return;
+  const now = Date.now();
+  if (now - lastNotificationTime < 60000) return;
+  lastNotificationTime = now;
+  try { new Notification(title, { body }); } catch (e) {}
+}
+
+if ($("hwNotifyToggle")) {
+  $("hwNotifyToggle").onchange = e => {
+    if (e.target.checked && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then(p => {
+        if (p !== "granted") e.target.checked = false;
+      });
+    }
+  };
+}
+
+function updateAlertBanner(cpuN, gpuN, ramN, cpuTN, gpuTN) {
+  const banner = $("hwAlertBanner");
+  const bannerText = $("hwAlertText");
+  if (!banner || !bannerText) return;
+
+  const isDanger = (cpuTN >= 82 || gpuTN >= 82 || cpuN >= 90 || gpuN >= 90 || ramN >= 90);
+  const isWarn = (cpuTN >= 75 || gpuTN >= 75 || cpuN >= 80 || gpuN >= 80 || ramN >= 80);
+
+  if (isDanger) {
+    banner.className = "hw-alert-banner danger";
+    const issues = [];
+    if (cpuTN >= 82) issues.push(`CPU 溫度過高 (${cpuTN}°C)`);
+    if (gpuTN >= 82) issues.push(`GPU 溫度過高 (${gpuTN}°C)`);
+    if (cpuN >= 90) issues.push(`CPU 滿載 (${cpuN}%)`);
+    if (gpuN >= 90) issues.push(`GPU 滿載 (${gpuN}%)`);
+    if (ramN >= 90) issues.push(`RAM 記憶體吃緊 (${ramN}%)`);
+    bannerText.innerHTML = `<span>🚨</span> <b>系統警戒：</b> ${issues.join(" ｜ ")}`;
+    triggerDesktopNotification("🚨 系統硬體過熱/高負載警報", issues.join(" | "));
+  } else if (isWarn) {
+    banner.className = "hw-alert-banner warn";
+    const issues = [];
+    if (cpuTN >= 75) issues.push(`CPU 溫度偏高 (${cpuTN}°C)`);
+    if (gpuTN >= 75) issues.push(`GPU 溫度偏高 (${gpuTN}°C)`);
+    if (cpuN >= 80) issues.push(`CPU 負載偏高 (${cpuN}%)`);
+    if (gpuN >= 80) issues.push(`GPU 負載偏高 (${gpuN}%)`);
+    if (ramN >= 80) issues.push(`RAM 使用量偏高 (${ramN}%)`);
+    bannerText.innerHTML = `<span>⚠️</span> <b>系統提示：</b> ${issues.join(" ｜ ")}`;
+  } else {
+    banner.className = "hw-alert-banner ok";
+    bannerText.innerHTML = `<span>✅</span> 系統溫度與負載皆在正常安全範圍內 (CPU: ${cpuN}% ${cpuTN > 0 ? cpuTN + '°C' : ''} | GPU: ${gpuN}% ${gpuTN > 0 ? gpuTN + '°C' : ''} | RAM: ${ramN}%)`;
+  }
+}
+
 ["showCpu", "showGpu", "showRam", "showCpuTemp", "showGpuTemp"].forEach(id => {
   $(id).onchange = () => renderHwDashboard();
 });
@@ -1992,6 +2138,8 @@ async function updateHardwareStatus() {
     if (miniRam) {
       miniRam.className = "hw-mini-badge " + (ramNum >= 90 ? "alert-danger" : (ramNum >= 80 ? "alert-warn" : ""));
     }
+
+    updateAlertBanner(cpuNum, gpuNum, ramNum, cpuTempNum, gpuTempNum);
 
     const now = Date.now();
     const timeStr = new Date(now).toLocaleTimeString();
