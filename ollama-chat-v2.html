@@ -1657,9 +1657,70 @@ async function flushHardwareBatchToSqlite() {
 }
 
 if ($("hwExportBtn")) {
-  $("hwExportBtn").onclick = () => {
-    const exportUrl = HW_API_BASE.includes("8086") ? "http://localhost:8086/api/hardware/export" : "/api/hardware/export";
-    window.open(exportUrl, "_blank");
+  $("hwExportBtn").onclick = async () => {
+    const btn = $("hwExportBtn");
+    const origText = btn.textContent;
+    btn.textContent = "⏳ Exporting...";
+    btn.disabled = true;
+
+    function triggerDownload(content, filename) {
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    try {
+      // 1. Try fetching full SQLite export from backend
+      let res = null;
+      try {
+        res = await fetch("/api/hardware/export");
+      } catch (e) {
+        try {
+          res = await fetch("http://localhost:8086/api/hardware/export");
+        } catch (e2) {}
+      }
+
+      if (res && res.ok) {
+        const text = await res.text();
+        triggerDownload(text, `hardware_telemetry_${Date.now()}.csv`);
+        btn.textContent = "✓ Exported!";
+        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+        return;
+      }
+    } catch (e) {}
+
+    // 2. Client-side fallback: Export recorded telemetry from memory
+    try {
+      const rows = [["id", "timestamp", "datetime_iso", "cpu_percent", "gpu_percent", "ram_percent", "cpu_temp_c", "gpu_temp_c"]];
+      hwTrend.forEach((item, idx) => {
+        const t = item.t || Date.now();
+        const iso = new Date(t).toISOString();
+        rows.push([
+          idx + 1,
+          t,
+          `"${iso}"`,
+          item.cpu !== "--" ? item.cpu : "",
+          item.gpu !== "--" ? item.gpu : "",
+          item.ram !== "--" ? item.ram : "",
+          item.cpuTemp && item.cpuTemp !== "--" ? item.cpuTemp : "",
+          item.gpuTemp && item.gpuTemp !== "--" ? item.gpuTemp : ""
+        ]);
+      });
+      const csvStr = rows.map(r => r.join(",")).join("\r\n");
+      triggerDownload(csvStr, `hardware_telemetry_${Date.now()}.csv`);
+      btn.textContent = "✓ Exported!";
+      setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+    } catch (err) {
+      alert("Failed to export telemetry: " + err.message);
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
   };
 }
 

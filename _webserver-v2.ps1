@@ -55,9 +55,28 @@ while ($listener.IsListening) {
         $hwResp.Close()
         $handled = $true
       } catch {
-        # Fallback to direct Python CLI query if service is not yet responding
+        # Fallback to direct Python CLI if service is starting up
         try {
-          if ($ctx.Request.HttpMethod -eq "GET") {
+          if ($ctx.Request.Url.LocalPath -eq "/api/hardware/export") {
+            $tempCsv = Join-Path $Root "hardware_export.temp.csv"
+            & python (Join-Path $Root "hw_logger.py") --export-csv $tempCsv | Out-Null
+            if (Test-Path $tempCsv) {
+              $bytes = [IO.File]::ReadAllBytes($tempCsv)
+              Remove-Item -Force $tempCsv -ErrorAction SilentlyContinue
+              $ctx.Response.ContentType = "text/csv; charset=utf-8"
+              $ctx.Response.Headers.Add("Content-Disposition", 'attachment; filename="hardware_telemetry.csv"')
+              $ctx.Response.ContentLength64 = $bytes.Length
+              $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+              $handled = $true
+            }
+          } elseif ($ctx.Request.Url.LocalPath -eq "/api/hardware/stats") {
+            $outJson = & python (Join-Path $Root "hw_logger.py") --stats-json | Out-String
+            $b = [Text.Encoding]::UTF8.GetBytes($outJson)
+            $ctx.Response.ContentType = "application/json; charset=utf-8"
+            $ctx.Response.ContentLength64 = $b.Length
+            $ctx.Response.OutputStream.Write($b, 0, $b.Length)
+            $handled = $true
+          } elseif ($ctx.Request.HttpMethod -eq "GET") {
             $rangeVal = $ctx.Request.QueryString["range"]
             if ([string]::IsNullOrWhiteSpace($rangeVal)) { $rangeVal = "3600" }
             $maxPts = $ctx.Request.QueryString["maxPoints"]
