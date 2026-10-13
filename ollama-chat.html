@@ -150,7 +150,7 @@
     <footer>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
-        <button id="speakerBtn" title="Toggle Auto Speak" style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #7ee787;">&#128266;</button>
+        <button id="speakerBtn" title="Toggle Auto Speak" style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e;">&#128263;</button>
         <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
         <button id="send" class="primary" disabled>Send</button>
       </div>
@@ -192,7 +192,7 @@ ollama serve</pre>
 const HOST = "http://localhost:11434";
 const $ = id => document.getElementById(id);
 let activeModel = null, history = [], busy = false, autoScroll = true, totalTokens = 0;
-let autoSpeak = true;
+let autoSpeak = false;
 
 const ms = n => n == null ? "?" : (n / 1e6).toFixed(0) + "ms";
 function bytes(b) {
