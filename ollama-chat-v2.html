@@ -218,6 +218,95 @@
     background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.25);
     color: #3fb950;
   }
+
+  /* RAG Styles */
+  .rag-header-btn {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500;
+    padding: 3px 10px; background: rgba(56, 139, 253, 0.1); border: 1px solid rgba(56, 139, 253, 0.35);
+    color: #58a6ff; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; margin-left: 8px;
+    user-select: none;
+  }
+  .rag-header-btn:hover { background: rgba(56, 139, 253, 0.2); border-color: #58a6ff; transform: translateY(-1px); }
+  .rag-badge {
+    background: #58a6ff; color: #0d1117; font-size: 11px; font-weight: 700;
+    padding: 1px 6px; border-radius: 10px; margin-left: 2px;
+  }
+  .rag-composer-toggle {
+    padding: 0 8px; font-size: 13px; font-weight: 600; background: transparent;
+    border: 1px solid #30363d; color: #8b949e; border-radius: 6px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s ease;
+    user-select: none;
+  }
+  .rag-composer-toggle.active {
+    background: rgba(56, 139, 253, 0.15); border-color: #58a6ff; color: #58a6ff;
+  }
+  .rag-dialog {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 880px;
+    max-width: 95vw; box-shadow: 0 16px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column;
+    overflow: hidden; animation: fadeInScale 0.2s ease-out;
+  }
+  .rag-head {
+    padding: 12px 18px; background: #0d1117; border-bottom: 1px solid #30363d;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .rag-engine-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+    background: #161b22; border: 1px solid #30363d; padding: 2px 8px; border-radius: 12px; color: #8b949e;
+  }
+  .rag-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-height: 85vh; overflow-y: auto; }
+  .rag-tabs { display: flex; gap: 6px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+  .rag-tab-btn {
+    background: transparent; border: 1px solid transparent; color: #8b949e; font-size: 12.5px;
+    padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  }
+  .rag-tab-btn:hover { color: #e6edf3; background: #21262d; }
+  .rag-tab-btn.active { background: #21262d; border-color: #30363d; color: #58a6ff; font-weight: 600; }
+  .rag-tab-panel { display: none; }
+  .rag-tab-panel.active { display: block; }
+  .rag-dropzone {
+    border: 2px dashed #30363d; border-radius: 10px; padding: 24px 16px; text-align: center;
+    background: rgba(13, 17, 23, 0.6); transition: all 0.2s ease; cursor: pointer;
+  }
+  .rag-dropzone:hover, .rag-dropzone.dragover {
+    border-color: #58a6ff; background: rgba(56, 139, 253, 0.05);
+  }
+  .rag-docs-section {
+    border-top: 1px solid #30363d; padding-top: 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .rag-docs-list {
+    display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto;
+  }
+  .rag-doc-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+    background: #0d1117; border: 1px solid #21262d; border-radius: 6px; font-size: 12.5px;
+    transition: all 0.15s ease;
+  }
+  .rag-doc-row:hover { border-color: #30363d; background: #161b22; }
+  .rag-citation-box {
+    margin: 8px 0; border: 1px solid rgba(56, 139, 253, 0.35); border-radius: 8px;
+    background: rgba(56, 139, 253, 0.06); overflow: hidden; font-size: 12px;
+  }
+  .rag-citation-header {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer;
+    user-select: none; color: #58a6ff; font-weight: 600; background: rgba(56, 139, 253, 0.08);
+  }
+  .rag-citation-header:hover { background: rgba(56, 139, 253, 0.14); }
+  .rag-citation-body {
+    display: none; padding: 10px 12px; flex-direction: column; gap: 8px;
+    background: rgba(13, 17, 23, 0.5); border-top: 1px solid rgba(56, 139, 253, 0.2);
+  }
+  .rag-citation-body.open { display: flex; }
+  .rag-chunk-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .rag-chunk-meta {
+    display: flex; justify-content: space-between; font-size: 11px; color: #8b949e;
+  }
+  .rag-chunk-text {
+    color: #c9d1d9; font-size: 12px; line-height: 1.5; white-space: pre-wrap; font-family: inherit;
+    max-height: 120px; overflow-y: auto; background: #0d1117; padding: 6px 8px; border-radius: 4px;
+  }
 </style>
 </head>
 <body>
@@ -237,6 +326,11 @@
   <button id="pullBtn">Pull</button>
   <button id="pullCancel" class="danger" style="display:none">Cancel</button>
   <span id="tokenCount" style="margin-left: 12px; font-size: 13px; color: #8b949e;">Token Used: 0</span>
+  <button id="ragBtn" class="rag-header-btn" title="開啟知識庫管理 (RAG 檢索增強生成)">
+    <span>📚</span>
+    <span>知識庫 (RAG)</span>
+    <span id="ragDocBadge" class="rag-badge">0</span>
+  </button>
   <span class="spacer"></span>
   <div id="hwMonitor" class="hw-header-capsule" title="點擊開啟系統效能即時儀表板 (點擊開展詳細圖表與歷史記錄)">
     <span class="live-dot" style="width:6px; height:6px;" title="即時取樣中"></span>
@@ -258,6 +352,9 @@
     <footer>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Run a model first..." disabled></textarea>
+        <button id="ragToggleBtn" class="rag-composer-toggle active" title="點擊切換 RAG 檢索增強生成 (目前: 已啟用)">
+          <span>📚</span><span>RAG</span>
+        </button>
         <button id="speakerBtn" title="Toggle Auto Speak" style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e;">&#128263;</button>
         <button id="micBtn" title="Voice Input" disabled style="padding: 0 10px; font-size: 16px; background: transparent; border: 1px solid #30363d; color: #8b949e; display: none;">&#127908;</button>
         <button id="send" class="primary" disabled>Send</button>
@@ -405,6 +502,112 @@ ollama serve</pre>
   </div>
 </div>
 
+<div id="ragModal" class="modal-backdrop">
+  <div class="rag-dialog">
+    <div class="rag-head">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:18px;">📚</span>
+        <h2 style="font-size:15px; font-weight:600; margin:0;">知識庫管理 (RAG 檢索增強生成)</h2>
+        <div id="ragEngineBadge" class="rag-engine-badge" title="檢索引擎狀態">
+          <span class="live-dot" style="width:6px; height:6px;"></span>
+          <span id="ragEngineText">檢索: BM25 / TF-IDF 關鍵字向量 (已就緒)</span>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button id="ragPullEmbedBtn" class="btn btn-sm" style="background:#21262d; border:1px solid #30363d; color:#58a6ff; font-size:11.5px; display:none;" title="下載 nomic-embed-text 模型以啟用語意向量 (274MB)">📥 下載 nomic-embed-text 模型</button>
+        <button id="closeRagModal" class="close-btn" title="關閉視窗 (Esc)">✕</button>
+      </div>
+    </div>
+    
+    <div class="rag-body">
+      <!-- Tabs -->
+      <div class="rag-tabs">
+        <button class="rag-tab-btn active" data-tab="upload">📁 上傳檔案</button>
+        <button class="rag-tab-btn" data-tab="scan">💻 掃描本機目錄</button>
+        <button class="rag-tab-btn" data-tab="note">✍️ 新增文字筆記</button>
+        <button class="rag-tab-btn" data-tab="search">🔍 檢索測試與預覽</button>
+        <button class="rag-tab-btn" data-tab="settings">⚙️ 檢索參數</button>
+      </div>
+
+      <!-- Tab 1: Upload Files -->
+      <div id="ragTabUpload" class="rag-tab-panel active">
+        <div class="rag-dropzone" id="ragDropZone">
+          <div style="font-size:30px; margin-bottom:6px;">📄</div>
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">拖曳檔案至此處，或點擊瀏覽檔案</div>
+          <div style="color:#8b949e; font-size:12px;">支援 TXT, MD, CSV, JSON, LOG, HTML, PY, JS, TS, SQL 等純文字格式 (單檔最大 10MB)</div>
+          <input type="file" id="ragFileInput" multiple style="display:none;" accept=".txt,.md,.markdown,.csv,.json,.log,.py,.js,.ts,.html,.css,.xml,.yaml,.yml,.sql,.sh,.ps1,.java,.cpp,.c,.h">
+          <button type="button" class="btn primary" style="margin-top:12px;" onclick="$('ragFileInput').click()">選擇檔案</button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Scan Directory -->
+      <div id="ragTabScan" class="rag-tab-panel">
+        <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+          <input id="ragScanPathInput" placeholder="請輸入本機資料夾路徑 (例如: g:\我的雲端硬碟\AiPassTH 或 C:\Projects)" style="flex:1; padding:8px 12px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9; font-size:13px;">
+          <button id="ragScanBtn" class="btn primary" style="white-space:nowrap;">🔍 掃描目錄檔案</button>
+        </div>
+        <div id="ragScanResults" style="max-height:200px; overflow-y:auto; border:1px solid #30363d; border-radius:6px; background:#0d1117; padding:8px; display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #21262d;">
+            <label style="font-size:12px; cursor:pointer;"><input type="checkbox" id="ragScanSelectAll" checked> 全選 (<span id="ragScanCount">0</span> 份檔案)</label>
+            <button id="ragImportScannedBtn" class="btn btn-sm primary">📥 批次匯入知識庫</button>
+          </div>
+          <div id="ragScanFileList" style="display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Text Note -->
+      <div id="ragTabNote" class="rag-tab-panel">
+        <input id="ragNoteTitle" placeholder="筆記標題 (例如: 產品規格說明 / 專案簡報草稿)" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:8px 12px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9; font-size:13px;">
+        <textarea id="ragNoteContent" rows="5" placeholder="請在此貼上或輸入文字內容..." style="width:100%; box-sizing:border-box; padding:8px 12px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9; font-size:13px; resize:vertical; font-family:inherit;"></textarea>
+        <button id="ragSaveNoteBtn" class="btn primary" style="margin-top:8px;">➕ 加入知識庫</button>
+      </div>
+
+      <!-- Tab 4: Search Playground -->
+      <div id="ragTabSearch" class="rag-tab-panel">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input id="ragTestQueryInput" placeholder="輸入搜尋測試關鍵字或提問..." style="flex:1; padding:8px 12px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9; font-size:13px;">
+          <button id="ragTestSearchBtn" class="btn primary">即時檢索</button>
+        </div>
+        <div id="ragTestSearchResults" style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <!-- Tab 5: Settings -->
+      <div id="ragTabSettings" class="rag-tab-panel">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+          <div>
+            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">文字切分區塊大小 (Chunk Size, 字元數):</label>
+            <input type="number" id="ragChunkSizeInput" value="500" min="150" max="2000" step="50" style="width:100%; box-sizing:border-box; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">重疊字元數 (Chunk Overlap):</label>
+            <input type="number" id="ragChunkOverlapInput" value="100" min="0" max="400" step="10" style="width:100%; box-sizing:border-box; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">檢索注入區塊數 (Top K):</label>
+            <input type="number" id="ragTopKInput" value="3" min="1" max="10" step="1" style="width:100%; box-sizing:border-box; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">最小相關度門檻 (Min Score Threshold):</label>
+            <input type="number" id="ragMinScoreInput" value="0.15" min="0.0" max="1.0" step="0.05" style="width:100%; box-sizing:border-box; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Loaded Documents Section -->
+      <div class="rag-docs-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="font-size:13px; font-weight:600; margin:0; display:flex; align-items:center; gap:6px;">
+            <span>已匯入文件清單</span>
+            <span id="ragStatsSummary" style="font-size:12px; font-weight:400; color:#8b949e;">(0 份文件, 0 個文字區塊)</span>
+          </h3>
+          <button id="ragClearAllDocsBtn" class="btn btn-sm" style="color:#ff7b72; border:1px solid #30363d;" title="清空知識庫中所有文件">🗑️ 清空所有文件</button>
+        </div>
+        <div id="ragDocsList" class="rag-docs-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="sysinfo.js"></script>
 <script>
 const HOST = "http://localhost:11434";
@@ -527,6 +730,9 @@ async function loadModels(quiet) {
     if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
     if (!quiet) log("OK", "Found " + models.length + " model(s)");
     setStatus(models.length + " models", "on");
+    if (window.RAGManager && typeof RAGManager.checkEmbeddingModel === "function") {
+      RAGManager.checkEmbeddingModel(models);
+    }
   } catch (e) {
     sel.innerHTML = "<option>Connection failed</option>";
     log("ERROR", "Connection failed: " + e.message);
@@ -812,7 +1018,21 @@ async function send(isToolRetry = false, isRegenerate = false, retryDepth = 0, e
     updateSendStopUI(true);
     $("input").value = ""; $("input").style.height = "auto";
     addMsg("user", text);
-    history.push({ role: "user", content: text });
+    let userPromptContent = text;
+    let ragCitations = null;
+    if (window.RAGManager && RAGManager.active && RAGManager.docs.length > 0) {
+      try {
+        ragCitations = await RAGManager.search(text);
+        if (ragCitations && ragCitations.length > 0) {
+          const ragContext = RAGManager.formatContext(ragCitations);
+          userPromptContent = `${ragContext}\n\n使用者提問：\n${text}`;
+          log("INFO", `[RAG] 檢索到 ${ragCitations.length} 個相關片段 (Top: ${(ragCitations[0].score * 100).toFixed(0)}%)`);
+        }
+      } catch (e) {
+        log("WARN", "[RAG] 檢索失敗: " + e.message);
+      }
+    }
+    history.push({ role: "user", content: userPromptContent });
     log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " ===");
     log("REQ", "POST /api/chat  model=" + activeModel + "  msgs=" + history.length + "  chars=" + text.length);
   } else if (isRegenerate) {
@@ -826,12 +1046,16 @@ async function send(isToolRetry = false, isRegenerate = false, retryDepth = 0, e
   }
 
   const bubble = (isToolRetry && existingBubble) ? existingBubble : addMsg("bot", isToolRetry ? "*(查詢/調用工具中...)*\n" : "");
+  if (!isToolRetry && !isRegenerate && typeof ragCitations !== "undefined" && ragCitations && ragCitations.length > 0) {
+    bubble._ragCitations = ragCitations;
+  }
   bubble.classList.add("cursor");
   let reply = "", chunks = 0, ttft = null, toolCalls = null, speechQueued = false;
   const t0 = performance.now();
   chatAbort = new AbortController();
   
   const tools = [
+    { type: "function", function: { name: "search_knowledge_base", description: "Search local user-provided knowledge base documents and notes for relevant information.", parameters: { type: "object", properties: { query: { type: "string", description: "Keywords or question to search in the knowledge base" } }, required: ["query"] } } },
     { type: "function", function: { name: "search_web", description: "Search the web for info.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
     { type: "function", function: { name: "read_url", description: "Read specific URL.", parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } } },
     { type: "function", function: { name: "get_news", description: "Get news.", parameters: { type: "object", properties: { query: { type: "string" } } } } },
@@ -902,7 +1126,7 @@ async function send(isToolRetry = false, isRegenerate = false, retryDepth = 0, e
             chunks++; reply += o.message.content;
             bubble._rawText = reply;
             const displayReply = reply.replace(/<\/?tool_call[^>]*>/gi, "").replace(/\[\/?TOOL_CALLS\]/gi, "");
-            bubble.innerHTML = md(displayReply);
+            bubble.innerHTML = (bubble._ragCitations && window.renderRagCitationCard ? renderRagCitationCard(bubble._ragCitations) : "") + md(displayReply);
             $("chat").scrollTop = $("chat").scrollHeight;
             log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
           }
@@ -1080,6 +1304,17 @@ async function send(isToolRetry = false, isRegenerate = false, retryDepth = 0, e
             const diag = `Current Telemetry: CPU ${last.cpu}% (${last.cpuTemp}°C), GPU ${last.gpu}% (${last.gpuTemp}°C), RAM ${last.ram}%.\nDiagnostics: ${statusStr}`;
             history.push({ role: "tool", name: tc.function.name, content: diag });
           }
+        } else if (tc.function.name === "search_knowledge_base") {
+          try {
+            const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
+            const results = (window.RAGManager) ? await RAGManager.search(args.query || "") : [];
+            if (!results || results.length === 0) {
+              history.push({ role: "tool", name: tc.function.name, content: "知識庫中未找到與此查詢相關的內容。" });
+            } else {
+              const summary = results.map((r, i) => `[來源 ${i+1}: ${r.docName} (相關度: ${(r.score*100).toFixed(1)}%)]\n${r.text}`).join("\n\n---\n\n");
+              history.push({ role: "tool", name: tc.function.name, content: summary });
+            }
+          } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (["open_application", "read_local_file", "run_command", "list_directory", "git_status"].includes(tc.function.name)) {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
@@ -1100,7 +1335,7 @@ async function send(isToolRetry = false, isRegenerate = false, retryDepth = 0, e
       await send(true, false, retryDepth + 1, bubble);
       return; 
     } else {
-      bubble.innerHTML = md(reply);
+      bubble.innerHTML = (bubble._ragCitations && window.renderRagCitationCard ? renderRagCitationCard(bubble._ragCitations) : "") + md(reply);
       history.push({ role: "assistant", content: reply });
       log("OK", "Reply complete (" + reply.length + " chars)");
       
@@ -2310,6 +2545,721 @@ async function updateHardwareStatus() {
 hwTimerId = setInterval(updateHardwareStatus, hwIntervalMs);
 updateHardwareStatus();
 loadHardwareHistoryFromSqlite(60);
+
+/* =========================================================================
+   RAG (Retrieval-Augmented Generation / 檢索增強生成) Engine & UI Manager
+   ========================================================================= */
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+window.renderRagCitationCard = function(citations) {
+  if (!citations || !citations.length) return "";
+  const topScore = (citations[0].score * 100).toFixed(0);
+  const itemsHtml = citations.map((c, i) => `
+    <div class="rag-chunk-card">
+      <div class="rag-chunk-meta">
+        <span style="color:#58a6ff;font-weight:600;">[來源 ${i+1}] 📄 ${escapeHtml(c.docName)}</span>
+        <span style="color:#ffa657;">相關度: ${(c.score * 100).toFixed(1)}%</span>
+      </div>
+      <div class="rag-chunk-text">${escapeHtml(c.text)}</div>
+    </div>
+  `).join("");
+
+  return `
+    <div class="rag-citation-box">
+      <div class="rag-citation-header" onclick="this.nextElementSibling.classList.toggle('open'); this.querySelector('.rag-arrow').textContent = this.nextElementSibling.classList.contains('open') ? '▼' : '▶';">
+        <span>📚 知識庫檢索：引用了 ${citations.length} 個參考片段</span>
+        <span style="font-size:11px;background:#21262d;padding:1px 6px;border-radius:10px;border:1px solid #30363d;color:#7ee787;">Top: ${topScore}%</span>
+        <span class="rag-arrow" style="margin-left:auto;font-size:10px;color:#8b949e;">▶</span>
+      </div>
+      <div class="rag-citation-body">
+        ${itemsHtml}
+      </div>
+    </div>
+  `;
+};
+
+const RAGDB = {
+  dbName: "Ollama_RAG_V1",
+  version: 1,
+  _db: null,
+
+  async getDB() {
+    if (this._db) return this._db;
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.dbName, this.version);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains("docs")) {
+          db.createObjectStore("docs", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("chunks")) {
+          const chunkStore = db.createObjectStore("chunks", { keyPath: "id" });
+          chunkStore.createIndex("docId", "docId", { unique: false });
+        }
+      };
+      req.onsuccess = () => {
+        this._db = req.result;
+        resolve(this._db);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  async getAllDocs() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("docs", "readonly");
+      const store = tx.objectStore("docs");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  async getAllChunks() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("chunks", "readonly");
+      const store = tx.objectStore("chunks");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  async saveDocAndChunks(doc, chunks) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(["docs", "chunks"], "readwrite");
+      tx.objectStore("docs").put(doc);
+      const chunkStore = tx.objectStore("chunks");
+      for (const ch of chunks) {
+        chunkStore.put(ch);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async deleteDoc(docId) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(["docs", "chunks"], "readwrite");
+      tx.objectStore("docs").delete(docId);
+      const chunkStore = tx.objectStore("chunks");
+      const index = chunkStore.index("docId");
+      const req = index.openKeyCursor(IDBKeyRange.only(docId));
+      req.onsuccess = e => {
+        const cursor = e.target.result;
+        if (cursor) {
+          chunkStore.delete(cursor.primaryKey);
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async clearAll() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(["docs", "chunks"], "readwrite");
+      tx.objectStore("docs").clear();
+      tx.objectStore("chunks").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+};
+
+function ragTokenize(text) {
+  if (!text) return [];
+  const normalized = text.toLowerCase();
+  const tokens = [];
+  const words = normalized.match(/[a-z0-9_]+/g) || [];
+  for (const w of words) {
+    if (w.length > 1) tokens.push(w);
+  }
+  const cjkChars = normalized.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || [];
+  for (let i = 0; i < cjkChars.length; i++) {
+    tokens.push(cjkChars[i]);
+    if (i < cjkChars.length - 1) {
+      tokens.push(cjkChars[i] + cjkChars[i + 1]);
+    }
+  }
+  return tokens;
+}
+
+function ragChunkText(text, chunkSize = 500, chunkOverlap = 100) {
+  if (!text) return [];
+  const paragraphs = text.split(/\r?\n\r?\n+/);
+  const rawSections = [];
+  for (const p of paragraphs) {
+    const trimmed = p.trim();
+    if (!trimmed) continue;
+    if (trimmed.length <= chunkSize) {
+      rawSections.push(trimmed);
+    } else {
+      const sentences = trimmed.split(/([。！？\n.!?]+)/).filter(Boolean);
+      let cur = "";
+      for (let i = 0; i < sentences.length; i += 2) {
+        const s = (sentences[i] || "") + (sentences[i + 1] || "");
+        if ((cur + s).length > chunkSize && cur.length > 0) {
+          rawSections.push(cur.trim());
+          cur = s;
+        } else {
+          cur += s;
+        }
+      }
+      if (cur.trim()) rawSections.push(cur.trim());
+    }
+  }
+
+  const chunks = [];
+  let currentChunk = "";
+  for (const sec of rawSections) {
+    if ((currentChunk + "\n\n" + sec).length <= chunkSize) {
+      currentChunk = currentChunk ? currentChunk + "\n\n" + sec : sec;
+    } else {
+      if (currentChunk) chunks.push(currentChunk.trim());
+      if (chunkOverlap > 0 && currentChunk.length > chunkOverlap) {
+        const overlapText = currentChunk.slice(-chunkOverlap);
+        currentChunk = overlapText + "\n\n" + sec;
+      } else {
+        currentChunk = sec;
+      }
+    }
+  }
+  if (currentChunk && currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  return chunks.filter(c => c.length >= 10);
+}
+
+function ragCalculateBM25(queryTokens, allChunks) {
+  const N = allChunks.length;
+  if (N === 0 || !queryTokens.length) return [];
+
+  const df = {};
+  let totalDocLen = 0;
+  for (const chunk of allChunks) {
+    totalDocLen += chunk.tokens.length;
+    const unique = new Set(chunk.tokens);
+    for (const t of unique) {
+      df[t] = (df[t] || 0) + 1;
+    }
+  }
+  const avgdl = totalDocLen / N || 1;
+  const k1 = 1.5;
+  const b = 0.75;
+
+  const idf = {};
+  for (const t of queryTokens) {
+    const docCount = df[t] || 0;
+    idf[t] = Math.log(1 + (N - docCount + 0.5) / (docCount + 0.5));
+  }
+
+  const scored = allChunks.map(chunk => {
+    const tf = {};
+    for (const t of chunk.tokens) {
+      tf[t] = (tf[t] || 0) + 1;
+    }
+    const docLen = chunk.tokens.length;
+    let score = 0;
+    for (const t of queryTokens) {
+      if (!tf[t]) continue;
+      const termFreq = tf[t];
+      const termIdf = idf[t] || 0;
+      const num = termFreq * (k1 + 1);
+      const den = termFreq + k1 * (1 - b + b * (docLen / avgdl));
+      score += termIdf * (num / den);
+    }
+    return { chunk, score };
+  });
+
+  return scored;
+}
+
+function ragCosineSimilarity(vecA, vecB) {
+  if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dot += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+async function ragFetchEmbedding(text, model) {
+  if (!model) return null;
+  try {
+    const res = await fetch(HOST + "/api/embed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: model, input: text })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.embeddings && data.embeddings[0]) return data.embeddings[0];
+    }
+  } catch (e) {}
+
+  try {
+    const res = await fetch(HOST + "/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: model, prompt: text })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.embedding) return data.embedding;
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+window.RAGManager = {
+  active: true,
+  docs: [],
+  chunks: [],
+  embeddingModel: null,
+  settings: {
+    chunkSize: 500,
+    chunkOverlap: 100,
+    topK: 3,
+    minScore: 0.15
+  },
+
+  async init() {
+    const savedActive = localStorage.getItem("ollama_rag_active");
+    this.active = savedActive !== "false";
+    this.updateToggleUI();
+
+    try {
+      const savedSettings = localStorage.getItem("ollama_rag_settings");
+      if (savedSettings) this.settings = Object.assign(this.settings, JSON.parse(savedSettings));
+      if ($("ragChunkSizeInput")) $("ragChunkSizeInput").value = this.settings.chunkSize;
+      if ($("ragChunkOverlapInput")) $("ragChunkOverlapInput").value = this.settings.chunkOverlap;
+      if ($("ragTopKInput")) $("ragTopKInput").value = this.settings.topK;
+      if ($("ragMinScoreInput")) $("ragMinScoreInput").value = this.settings.minScore;
+    } catch (e) {}
+
+    try {
+      this.docs = await RAGDB.getAllDocs();
+      this.chunks = await RAGDB.getAllChunks();
+      this.updateBadges();
+      this.renderDocList();
+    } catch (e) {
+      console.warn("RAG DB load error:", e);
+    }
+
+    this.bindEvents();
+  },
+
+  updateToggleUI() {
+    const btn = $("ragToggleBtn");
+    if (btn) {
+      if (this.active) {
+        btn.classList.add("active");
+        btn.title = "點擊切換 RAG 檢索增強生成 (目前: 已啟用)";
+      } else {
+        btn.classList.remove("active");
+        btn.title = "點擊切換 RAG 檢索增強生成 (目前: 已停用)";
+      }
+    }
+  },
+
+  updateBadges() {
+    const badge = $("ragDocBadge");
+    if (badge) {
+      badge.textContent = this.docs.length;
+      badge.style.display = this.docs.length > 0 ? "inline-block" : "none";
+    }
+    const summary = $("ragStatsSummary");
+    if (summary) {
+      summary.textContent = `(${this.docs.length} 份文件, ${this.chunks.length} 個文字區塊)`;
+    }
+  },
+
+  checkEmbeddingModel(models) {
+    if (!models || !models.length) return;
+    const embModel = models.find(m => /embed|bge|minilm/i.test(m.name));
+    const pullBtn = $("ragPullEmbedBtn");
+    const engineText = $("ragEngineText");
+
+    if (embModel) {
+      this.embeddingModel = embModel.name;
+      if (engineText) engineText.textContent = `檢索: Hybrid 語意向量 (${embModel.name}) + BM25`;
+      if (pullBtn) pullBtn.style.display = "none";
+    } else {
+      this.embeddingModel = null;
+      if (engineText) engineText.textContent = "檢索: BM25 / TF-IDF 關鍵字向量 (已就緒)";
+      if (pullBtn) pullBtn.style.display = "inline-block";
+    }
+  },
+
+  async addDocument(name, text, type = "txt") {
+    if (!text || !text.trim()) throw new Error("文件內容為空");
+    const docId = "doc_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+    const rawChunks = ragChunkText(text, this.settings.chunkSize, this.settings.chunkOverlap);
+    if (!rawChunks.length) throw new Error("無法切分文字區塊");
+
+    const chunkObjects = [];
+    for (let i = 0; i < rawChunks.length; i++) {
+      const chText = rawChunks[i];
+      let vec = null;
+      if (this.embeddingModel) {
+        vec = await ragFetchEmbedding(chText, this.embeddingModel);
+      }
+      chunkObjects.push({
+        id: `${docId}_ch_${i}`,
+        docId: docId,
+        docName: name,
+        index: i,
+        text: chText,
+        tokens: ragTokenize(chText),
+        vector: vec
+      });
+    }
+
+    const docObj = {
+      id: docId,
+      name: name,
+      size: text.length,
+      type: type,
+      chunkCount: chunkObjects.length,
+      createdAt: new Date().toLocaleString()
+    };
+
+    await RAGDB.saveDocAndChunks(docObj, chunkObjects);
+    this.docs.push(docObj);
+    this.chunks.push(...chunkObjects);
+
+    this.updateBadges();
+    this.renderDocList();
+    log("OK", `[RAG] 已成功匯入文件「${name}」，切分為 ${chunkObjects.length} 個區塊`);
+    return docObj;
+  },
+
+  async deleteDocument(docId) {
+    await RAGDB.deleteDoc(docId);
+    this.docs = this.docs.filter(d => d.id !== docId);
+    this.chunks = this.chunks.filter(c => c.docId !== docId);
+    this.updateBadges();
+    this.renderDocList();
+    log("INFO", `[RAG] 已刪除文件 (ID: ${docId})`);
+  },
+
+  async clearAll() {
+    if (!confirm("確定要清空知識庫中的所有文件與區塊嗎？")) return;
+    await RAGDB.clearAll();
+    this.docs = [];
+    this.chunks = [];
+    this.updateBadges();
+    this.renderDocList();
+    log("INFO", "[RAG] 已清空知識庫");
+  },
+
+  renderDocList() {
+    const listEl = $("ragDocsList");
+    if (!listEl) return;
+    if (!this.docs.length) {
+      listEl.innerHTML = '<div style="color:#8b949e;font-size:12px;text-align:center;padding:16px;">知識庫尚無文件，請上傳檔案或掃描本機目錄</div>';
+      return;
+    }
+
+    listEl.innerHTML = this.docs.map(d => `
+      <div class="rag-doc-row">
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+          <span style="font-size:16px;">📄</span>
+          <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;">
+            <div style="font-weight:600;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
+            <div style="font-size:11px;color:#8b949e;">${bytes(d.size)} • ${d.chunkCount} 區塊 • ${d.createdAt}</div>
+          </div>
+        </div>
+        <button class="btn btn-sm" style="color:#ff7b72;border:1px solid #30363d;padding:2px 8px;font-size:11px;" onclick="RAGManager.deleteDocument('${d.id}')">🗑️ 刪除</button>
+      </div>
+    `).join("");
+  },
+
+  async search(query, customTopK = null, customMinScore = null) {
+    if (!query || !query.trim() || !this.chunks.length) return [];
+    const topK = customTopK || this.settings.topK;
+    const minScore = customMinScore !== null ? customMinScore : this.settings.minScore;
+
+    const queryTokens = ragTokenize(query);
+    const bm25Results = ragCalculateBM25(queryTokens, this.chunks);
+
+    let maxBM25 = 0;
+    for (const r of bm25Results) {
+      if (r.score > maxBM25) maxBM25 = r.score;
+    }
+
+    let queryVec = null;
+    if (this.embeddingModel) {
+      queryVec = await ragFetchEmbedding(query, this.embeddingModel);
+    }
+
+    const scoredList = bm25Results.map(r => {
+      const normBM25 = maxBM25 > 0 ? (r.score / maxBM25) : 0;
+      let finalScore = normBM25;
+      if (queryVec && r.chunk.vector) {
+        const cosSim = ragCosineSimilarity(queryVec, r.chunk.vector);
+        const normCos = Math.max(0, cosSim);
+        finalScore = (normBM25 * 0.4) + (normCos * 0.6);
+      }
+      return {
+        id: r.chunk.id,
+        docName: r.chunk.docName,
+        text: r.chunk.text,
+        score: finalScore
+      };
+    });
+
+    scoredList.sort((a, b) => b.score - a.score);
+    return scoredList.filter(item => item.score >= minScore).slice(0, topK);
+  },
+
+  formatContext(citations) {
+    if (!citations || !citations.length) return "";
+    const snippets = citations.map((c, i) => {
+      const scorePct = (c.score * 100).toFixed(1);
+      return `[來源 ${i+1}: ${c.docName} (相關度: ${scorePct}%)]\n${c.text}`;
+    }).join("\n\n---\n\n");
+
+    return `【本地知識庫檢索參考資料 / Knowledge Context】：\n以下是從知識庫中檢索出的最相關內容片段，請優先依據以下內容回答使用者問題。如果資料中無相關內容，請客觀說明：\n\n---\n${snippets}\n---`;
+  },
+
+  bindEvents() {
+    if ($("ragBtn")) $("ragBtn").onclick = () => $("ragModal").classList.add("open");
+    if ($("closeRagModal")) $("closeRagModal").onclick = () => $("ragModal").classList.remove("open");
+    if ($("ragModal")) {
+      $("ragModal").onclick = e => { if (e.target === $("ragModal")) $("ragModal").classList.remove("open"); };
+    }
+
+    if ($("ragToggleBtn")) {
+      $("ragToggleBtn").onclick = () => {
+        this.active = !this.active;
+        localStorage.setItem("ollama_rag_active", this.active ? "true" : "false");
+        this.updateToggleUI();
+        log("INFO", `[RAG] 檢索增強生成已${this.active ? "開啟" : "關閉"}`);
+      };
+    }
+
+    document.querySelectorAll(".rag-tab-btn").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".rag-tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".rag-tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.getAttribute("data-tab");
+        const panelMap = {
+          upload: "ragTabUpload",
+          scan: "ragTabScan",
+          note: "ragTabNote",
+          search: "ragTabSearch",
+          settings: "ragTabSettings"
+        };
+        const panel = $(panelMap[tab]);
+        if (panel) panel.classList.add("active");
+      };
+    });
+
+    const dropZone = $("ragDropZone");
+    const fileInput = $("ragFileInput");
+    if (dropZone && fileInput) {
+      dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add("dragover"); };
+      dropZone.ondragleave = () => dropZone.classList.remove("dragover");
+      dropZone.ondrop = async e => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        if (e.dataTransfer.files) this.handleFiles(e.dataTransfer.files);
+      };
+      fileInput.onchange = e => {
+        if (e.target.files) this.handleFiles(e.target.files);
+        fileInput.value = "";
+      };
+    }
+
+    if ($("ragClearAllDocsBtn")) $("ragClearAllDocsBtn").onclick = () => this.clearAll();
+
+    if ($("ragPullEmbedBtn")) {
+      $("ragPullEmbedBtn").onclick = () => {
+        $("ragModal").classList.remove("open");
+        $("pullName").value = "nomic-embed-text";
+        pullModel();
+      };
+    }
+
+    if ($("ragSaveNoteBtn")) {
+      $("ragSaveNoteBtn").onclick = async () => {
+        const title = ($("ragNoteTitle").value || "").trim() || "手動筆記_" + new Date().toLocaleDateString();
+        const content = ($("ragNoteContent").value || "").trim();
+        if (!content) return alert("請輸入筆記內容");
+        try {
+          $("ragSaveNoteBtn").disabled = true;
+          await this.addDocument(title, content, "note");
+          $("ragNoteTitle").value = "";
+          $("ragNoteContent").value = "";
+          alert("筆記已成功加入知識庫！");
+        } catch (e) {
+          alert("加入失敗: " + e.message);
+        } finally {
+          $("ragSaveNoteBtn").disabled = false;
+        }
+      };
+    }
+
+    if ($("ragScanBtn")) {
+      $("ragScanBtn").onclick = async () => {
+        const path = ($("ragScanPathInput").value || "").trim() || ".";
+        try {
+          $("ragScanBtn").disabled = true;
+          $("ragScanBtn").textContent = "掃描中...";
+          const res = await fetch("/api/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "scan_files", path: path })
+          });
+          const files = await res.json();
+          this.renderScanResults(files);
+        } catch (e) {
+          alert("掃描目錄失敗 (請確認 _webserver.ps1 正常運作): " + e.message);
+        } finally {
+          $("ragScanBtn").disabled = false;
+          $("ragScanBtn").textContent = "🔍 掃描目錄檔案";
+        }
+      };
+    }
+
+    if ($("ragImportScannedBtn")) {
+      $("ragImportScannedBtn").onclick = async () => {
+        const checkedBoxes = document.querySelectorAll(".rag-scan-cb:checked");
+        if (!checkedBoxes.length) return alert("請勾選要匯入的檔案");
+        const fileItems = Array.from(checkedBoxes).map(cb => JSON.parse(cb.dataset.file));
+        $("ragImportScannedBtn").disabled = true;
+        let imported = 0;
+        for (const f of fileItems) {
+          try {
+            $("ragImportScannedBtn").textContent = `匯入中 (${imported + 1}/${fileItems.length})...`;
+            const r = await fetch("/api/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "read", path: f.FullName })
+            });
+            const text = await r.text();
+            if (text.trim()) {
+              await this.addDocument(f.Name, text, f.Extension ? f.Extension.replace(".", "") : "txt");
+              imported++;
+            }
+          } catch (err) {
+            console.warn("Import error:", f.Name, err);
+          }
+        }
+        $("ragImportScannedBtn").disabled = false;
+        $("ragImportScannedBtn").textContent = "📥 批次匯入知識庫";
+        alert(`成功匯入 ${imported} 份檔案到知識庫！`);
+        $("ragScanResults").style.display = "none";
+      };
+    }
+
+    if ($("ragScanSelectAll")) {
+      $("ragScanSelectAll").onchange = e => {
+        document.querySelectorAll(".rag-scan-cb").forEach(cb => { cb.checked = e.target.checked; });
+      };
+    }
+
+    if ($("ragTestSearchBtn")) {
+      $("ragTestSearchBtn").onclick = async () => {
+        const q = ($("ragTestQueryInput").value || "").trim();
+        if (!q) return;
+        const resEl = $("ragTestSearchResults");
+        resEl.innerHTML = '<div style="color:#8b949e;font-size:12px;">檢索比對中...</div>';
+        const matches = await this.search(q, 5, 0.05);
+        if (!matches.length) {
+          resEl.innerHTML = '<div style="color:#ff7b72;font-size:12px;padding:8px;">未找到匹配區塊 (可嘗試降低門檻或匯入相關檔案)</div>';
+          return;
+        }
+        resEl.innerHTML = matches.map((m, i) => `
+          <div class="rag-chunk-card">
+            <div class="rag-chunk-meta">
+              <span style="color:#58a6ff;font-weight:600;">#${i+1} 📄 ${escapeHtml(m.docName)}</span>
+              <span style="color:#ffa657;font-weight:600;">相關度: ${(m.score * 100).toFixed(1)}%</span>
+            </div>
+            <div class="rag-chunk-text">${escapeHtml(m.text)}</div>
+          </div>
+        `).join("");
+      };
+    }
+
+    ["ragChunkSizeInput", "ragChunkOverlapInput", "ragTopKInput", "ragMinScoreInput"].forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.onchange = () => {
+          this.settings.chunkSize = parseInt($("ragChunkSizeInput").value) || 500;
+          this.settings.chunkOverlap = parseInt($("ragChunkOverlapInput").value) || 100;
+          this.settings.topK = parseInt($("ragTopKInput").value) || 3;
+          this.settings.minScore = parseFloat($("ragMinScoreInput").value) || 0.15;
+          localStorage.setItem("ollama_rag_settings", JSON.stringify(this.settings));
+        };
+      }
+    });
+  },
+
+  async handleFiles(files) {
+    let successCount = 0;
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        await this.addDocument(file.name, text, file.name.split(".").pop() || "txt");
+        successCount++;
+      } catch (err) {
+        alert(`讀取檔案「${file.name}」失敗: ` + err.message);
+      }
+    }
+    if (successCount > 0) {
+      alert(`已成功解析並匯入 ${successCount} 份檔案！`);
+    }
+  },
+
+  renderScanResults(files) {
+    const resBox = $("ragScanResults");
+    const listEl = $("ragScanFileList");
+    const countEl = $("ragScanCount");
+    if (!resBox || !listEl) return;
+    if (!files || !files.length) {
+      resBox.style.display = "block";
+      listEl.innerHTML = '<div style="color:#8b949e;font-size:12px;padding:8px;">此目錄未找到支援的文字檔案</div>';
+      if (countEl) countEl.textContent = "0";
+      return;
+    }
+    resBox.style.display = "block";
+    if (countEl) countEl.textContent = files.length;
+    listEl.innerHTML = files.map(f => `
+      <label style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;background:#161b22;font-size:12px;cursor:pointer;">
+        <span style="display:flex;align-items:center;gap:6px;overflow:hidden;">
+          <input type="checkbox" class="rag-scan-cb" checked data-file="${escapeHtml(JSON.stringify(f))}">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9d1d9;" title="${escapeHtml(f.FullName)}">${escapeHtml(f.Name)}</span>
+        </span>
+        <span style="color:#8b949e;font-size:11px;white-space:nowrap;margin-left:8px;">${bytes(f.Length)}</span>
+      </label>
+    `).join("");
+  }
+};
+
+RAGManager.init();
 </script>
 </body>
 </html>

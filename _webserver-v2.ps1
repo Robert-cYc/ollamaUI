@@ -136,6 +136,30 @@ while ($listener.IsListening) {
           $output = ($items | Format-Table -AutoSize | Out-String).Trim()
           if ([string]::IsNullOrWhiteSpace($output)) { $output = "(Directory is empty)" }
         }
+        elseif ($req.action -eq "scan_files") {
+          $targetPath = if ([string]::IsNullOrWhiteSpace($req.path)) { $Root } else { $req.path.ToString().Trim('"').Trim("'") }
+          if (-not (Test-Path $targetPath)) {
+            $output = "[]"
+          } else {
+            $exts = @(".txt", ".md", ".markdown", ".csv", ".json", ".log", ".py", ".js", ".ts", ".html", ".css", ".xml", ".yaml", ".yml", ".sql", ".sh", ".ps1")
+            $files = Get-ChildItem -Path $targetPath -Recurse -File -Depth 4 -ErrorAction SilentlyContinue |
+              Where-Object { 
+                $e = $_.Extension.ToLower()
+                ($exts -contains $e) -and 
+                ($_.FullName -notmatch '[\\/](\.git|node_modules|__pycache__|\.vscode)[\\/]') -and
+                ($_.Length -le 10485760)
+              } | Select-Object -First 200 | ForEach-Object {
+                @{
+                  Name = $_.Name
+                  FullName = $_.FullName
+                  Length = $_.Length
+                  Extension = $_.Extension
+                  LastWriteTime = $_.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+                }
+              }
+            $output = if ($files) { ($files | ConvertTo-Json -Compress) } else { "[]" }
+          }
+        }
         elseif ($req.action -eq "git_status") {
           $targetDir = if ([string]::IsNullOrWhiteSpace($req.path)) { $Root } else { $req.path }
           Push-Location $targetDir
