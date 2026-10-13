@@ -725,7 +725,82 @@ async function psCheck() {
   } catch (e) { log("WARN", "ps failed: " + e.message); }
 }
 
-async function send(isToolRetry = false, isRegenerate = false) {
+function extractAndCleanToolCalls(text, existingCalls = []) {
+  const calls = existingCalls ? [...existingCalls] : [];
+  let cleanText = text || "";
+
+  // 1. Match explicit <tool_call> ... </tool_call> or <tool_call:name> ... </tool_call>
+  const toolCallTagRegex = /<tool_call(?::([a-zA-Z0-9_-]+))?>([\s\S]*?)<\/tool_call>/gi;
+  let match;
+  while ((match = toolCallTagRegex.exec(cleanText)) !== null) {
+    const tagName = match[1];
+    const body = match[2].trim();
+    try {
+      let parsed = JSON.parse(body);
+      const funcName = parsed.name || (parsed.function && parsed.function.name) || tagName;
+      const funcArgs = parsed.arguments || parsed.parameters || (parsed.name ? {} : parsed);
+      if (funcName) calls.push({ function: { name: funcName, arguments: funcArgs } });
+    } catch (e) {
+      const jsonMatch = body.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const funcName = parsed.name || (parsed.function && parsed.function.name) || tagName;
+          const funcArgs = parsed.arguments || parsed.parameters || parsed;
+          if (funcName) calls.push({ function: { name: funcName, arguments: funcArgs } });
+        } catch (e2) {}
+      }
+    }
+  }
+  cleanText = cleanText.replace(/<tool_call(?::[a-zA-Z0-9_-]+)?>[\s\S]*?<\/tool_call>/gi, "");
+
+  // 2. Match [TOOL_CALLS] [...] [/TOOL_CALLS]
+  const bracketRegex = /\[TOOL_CALLS\]([\s\S]*?)\[\/TOOL_CALLS\]/gi;
+  while ((match = bracketRegex.exec(cleanText)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      for (const item of arr) {
+        const fnName = item.name || (item.function && item.function.name);
+        const fnArgs = item.arguments || item.parameters || {};
+        if (fnName) calls.push({ function: { name: fnName, arguments: fnArgs } });
+      }
+    } catch (e) {}
+  }
+  cleanText = cleanText.replace(/\[TOOL_CALLS\][\s\S]*?\[\/TOOL_CALLS\]/gi, "");
+
+  // 3. Match raw JSON objects with a "name" field if no calls yet
+  if (calls.length === 0 && cleanText.includes("{") && cleanText.includes("}")) {
+    const rawJsonMatches = cleanText.match(/\{[\s\S]*?"name"\s*:\s*"[^"]+"[\s\S]*?\}/g);
+    if (rawJsonMatches) {
+      for (const jm of rawJsonMatches) {
+        try {
+          const parsed = JSON.parse(jm);
+          const fnName = parsed.name || (parsed.function && parsed.function.name);
+          const fnArgs = parsed.arguments || parsed.parameters || parsed;
+          if (fnName) {
+            calls.push({ function: { name: fnName, arguments: fnArgs } });
+            cleanText = cleanText.replace(jm, "");
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  // 4. Strip any orphaned or broken tool tags (e.g. </tool_call>, <tool_call>, etc.)
+  cleanText = cleanText.replace(/<\/?tool_call[^>]*>/gi, "")
+                       .replace(/\[\/?TOOL_CALLS\]/gi, "")
+                       .trim();
+
+  // 5. Clean trailing or isolated fragment artifacts from malformed tool attempts
+  if (calls.length > 0 && cleanText && !/[.!?。！？\n]/.test(cleanText) && cleanText.length < 20) {
+    cleanText = "";
+  }
+
+  return { cleanText, toolCalls: calls };
+}
+
+async function send(isToolRetry = false, isRegenerate = false, retryDepth = 0, existingBubble = null) {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
     isAgentSpeaking = false;
@@ -747,10 +822,10 @@ async function send(isToolRetry = false, isRegenerate = false) {
     log("INFO", "=== Turn #" + Math.ceil(history.length / 2) + " (Regenerate) ===");
     log("REQ", "POST /api/chat (Regenerate)  model=" + activeModel + "  msgs=" + history.length);
   } else {
-    log("REQ", "POST /api/chat (Tool Retry)  model=" + activeModel + "  msgs=" + history.length);
+    log("REQ", "POST /api/chat (Tool Retry #" + retryDepth + ")  model=" + activeModel + "  msgs=" + history.length);
   }
 
-  const bubble = addMsg("bot", isToolRetry ? "*(查詢/調用工具中...)*\n" : "");
+  const bubble = (isToolRetry && existingBubble) ? existingBubble : addMsg("bot", isToolRetry ? "*(查詢/調用工具中...)*\n" : "");
   bubble.classList.add("cursor");
   let reply = "", chunks = 0, ttft = null, toolCalls = null, speechQueued = false;
   const t0 = performance.now();
@@ -767,7 +842,7 @@ async function send(isToolRetry = false, isRegenerate = false) {
     { type: "function", function: { name: "get_crypto_price", description: "Get crypto price.", parameters: { type: "object", properties: { coin_id: { type: "string" } }, required: ["coin_id"] } } },
     { type: "function", function: { name: "search_wikipedia", description: "Search Wiki.", parameters: { type: "object", properties: { query: { type: "string" }, lang: { type: "string", default: "zh" } }, required: ["query"] } } },
     { type: "function", function: { name: "get_weather", description: "Get weather.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } } },
-    { type: "function", function: { name: "generate_image", description: "Generate an image using Pollinations.ai. Returns a markdown image link.", parameters: { type: "object", properties: { prompt: { type: "string", description: "English prompt for image generation" } }, required: ["prompt"] } } },
+    { type: "function", function: { name: "generate_image", description: "Generate an image using Pollinations.ai. Prompt MUST be purely in English (e.g. 'a bird flying over the moon'). Returns a markdown image link.", parameters: { type: "object", properties: { prompt: { type: "string", description: "Purely English descriptive prompt for image generation (must not contain non-English characters or hyphens)" } }, required: ["prompt"] } } },
     { type: "function", function: { name: "get_ip_location", description: "Get the current public IP and location information." } },
     { type: "function", function: { name: "get_hacker_news", description: "Get top tech news from Hacker News." } },
     { type: "function", function: { name: "translate_text", description: "Translate text using Lingva API.", parameters: { type: "object", properties: { text: { type: "string" }, target_lang: { type: "string", description: "Language code (e.g., 'en', 'zh', 'ja')" } }, required: ["text", "target_lang"] } } },
@@ -779,10 +854,20 @@ async function send(isToolRetry = false, isRegenerate = false) {
     { type: "function", function: { name: "get_hardware_alerts", description: "Check if system hardware (CPU, GPU, RAM) is currently experiencing overheating, critical temperature, or extreme compute load." } }
   ];
 
+  const requestBody = {
+    model: activeModel,
+    messages: history,
+    stream: true,
+    options: { temperature: 0.2 }
+  };
+  if (retryDepth < 3) {
+    requestBody.tools = tools;
+  }
+
   try {
     const res = await fetch(HOST + "/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: activeModel, messages: history, stream: true, tools: tools, options: { temperature: 0.2 } }),
+      body: JSON.stringify(requestBody),
       signal: chatAbort.signal
     });
     if (!res.ok) throw new Error(res.status + " " + await res.text());
@@ -799,14 +884,25 @@ async function send(isToolRetry = false, isRegenerate = false) {
         const o = JSON.parse(line);
         if (o.message) {
           if (o.message.tool_calls) {
-            toolCalls = o.message.tool_calls;
+            if (!toolCalls) toolCalls = [];
+            for (const tc of o.message.tool_calls) {
+              const idx = (tc.function && typeof tc.function.index === "number") ? tc.function.index : null;
+              if (idx !== null) {
+                toolCalls[idx] = tc;
+              } else {
+                const existingIdx = tc.id ? toolCalls.findIndex(t => t.id === tc.id) : -1;
+                if (existingIdx >= 0) toolCalls[existingIdx] = tc;
+                else toolCalls.push(tc);
+              }
+            }
           }
           if (o.message.content) {
             if (ttft === null) { ttft = performance.now() - t0; log("OK", "First token in " + ttft.toFixed(0) + "ms (TTFT)"); }
             if (isToolRetry && chunks === 0) reply = ""; // 清除提示文字
             chunks++; reply += o.message.content;
             bubble._rawText = reply;
-            bubble.innerHTML = md(reply);
+            const displayReply = reply.replace(/<\/?tool_call[^>]*>/gi, "").replace(/\[\/?TOOL_CALLS\]/gi, "");
+            bubble.innerHTML = md(displayReply);
             $("chat").scrollTop = $("chat").scrollHeight;
             log("STREAM", "chunk#" + chunks + " " + JSON.stringify(o.message.content));
           }
@@ -832,23 +928,19 @@ async function send(isToolRetry = false, isRegenerate = false) {
         }
       }
     }
-    if (!toolCalls && reply && reply.includes("{") && reply.includes("}")) {
-      const match = reply.match(/\{[\s\S]*"name"\s*:\s*"[^"]+"[\s\S]*\}/);
-      if (match) {
-        try {
-          const parsed = JSON.parse(match[0]);
-          if (parsed.name || (parsed.function && parsed.function.name)) {
-            toolCalls = [{ function: { name: parsed.name || parsed.function.name, arguments: parsed.parameters || parsed.arguments || parsed } }];
-            reply = reply.replace(match[0], "").trim();
-            bubble.innerHTML = md(reply) + (reply ? "<br>" : "") + "*(Triggering Tool...)*";
-          }
-        } catch (e) {}
-      }
-    }
+
+    if (toolCalls) toolCalls = toolCalls.filter(Boolean);
+
+    // Extract any tool calls from text and clean up reply
+    const parsedToolResult = extractAndCleanToolCalls(reply, toolCalls);
+    reply = parsedToolResult.cleanText;
+    toolCalls = parsedToolResult.toolCalls;
     
     if (toolCalls && toolCalls.length > 0) {
-      history.push({ role: "assistant", content: reply, tool_calls: toolCalls });
+      history.push({ role: "assistant", content: reply || "", tool_calls: toolCalls });
       log("INFO", "LLM called tools: " + toolCalls.map(t => t.function.name).join(", "));
+      bubble.innerHTML = (reply ? md(reply) + "<br>" : "") +
+        `<span style="color:#58a6ff;font-size:12.5px;font-family:ui-monospace,monospace;">⚙️ 正在執行工具 (${toolCalls.map(t => t.function.name).join(", ")})...</span>`;
       
       for (const tc of toolCalls) {
         if (tc.function.name === "get_system_info") {
@@ -925,7 +1017,26 @@ async function send(isToolRetry = false, isRegenerate = false) {
         } else if (tc.function.name === "generate_image") {
           try {
             const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {});
-            history.push({ role: "tool", name: tc.function.name, content: `![Generated Image](https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?width=1024&height=1024&nologo=true)` });
+            let promptText = (args.prompt || "").trim();
+            if (/[^\x00-\x7F]/.test(promptText)) {
+              let clean = promptText.replace(/[-_]+/g, " ").trim();
+              for (const sl of ["auto", "zh-TW", "zh-CN"]) {
+                if (!/[^\x00-\x7F]/.test(clean)) break;
+                try {
+                  const transRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=en&dt=t&q=${encodeURIComponent(clean)}`);
+                  const transData = await transRes.json();
+                  if (transData && transData[0]) {
+                    const transStr = transData[0].map(p => p[0]).filter(Boolean).join(" ").trim();
+                    if (transStr) clean = transStr;
+                  }
+                } catch (e) {}
+              }
+              clean = clean.replace(/[^\x00-\x7F]+/g, " ").trim();
+              if (clean) promptText = clean;
+            }
+            promptText = promptText.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim() || "beautiful scenery";
+            const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText)}?width=1024&height=1024&model=sana&nologo=true`;
+            history.push({ role: "tool", name: tc.function.name, content: `![${promptText}](${imgUrl})\nImage URL: ${imgUrl}` });
           } catch (err) { history.push({ role: "tool", name: tc.function.name, content: "Error: " + err.message }); }
         } else if (tc.function.name === "get_ip_location") {
           try {
@@ -986,9 +1097,10 @@ async function send(isToolRetry = false, isRegenerate = false) {
       }
       
       bubble.classList.remove("cursor");
-      await send(true);
+      await send(true, false, retryDepth + 1, bubble);
       return; 
     } else {
+      bubble.innerHTML = md(reply);
       history.push({ role: "assistant", content: reply });
       log("OK", "Reply complete (" + reply.length + " chars)");
       
@@ -1132,6 +1244,20 @@ function addMsg(role, text) {
   return bubble;
 }
 
+window.retryImg = function(btn, url) {
+  const container = btn.closest(".img-load-fail") || btn.parentElement;
+  const newImg = document.createElement("img");
+  newImg.className = "md-img";
+  newImg.src = url + (url.includes("?") ? "&" : "?") + "_r=" + Date.now();
+  newImg.loading = "lazy";
+  newImg.onclick = () => window.open(newImg.src, "_blank");
+  newImg.onerror = () => {
+    container.innerHTML = `⚠️ 圖片載入失敗 <button type="button" class="btn btn-sm" onclick="window.retryImg && window.retryImg(this, '${url.replace(/'/g, "\\'")}')" style="margin-left:4px;padding:1px 6px;font-size:11px;cursor:pointer;">🔄 重試</button> <a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#58a6ff;text-decoration:underline;margin-left:4px;">開啟連結</a>`;
+  };
+  container.innerHTML = '<span style="color:#8b949e;font-size:12px;">⏳ 重新載入中...</span>';
+  container.appendChild(newImg);
+};
+
 function renderMarkdownBody(text) {
   if (!text) return "";
   let normalized = text;
@@ -1161,7 +1287,19 @@ function renderMarkdownBody(text) {
   processed = processed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   // Images
-  processed = processed.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<img class="md-img" src="$2" alt="$1" title="$1" loading="lazy" onclick="window.open(this.src,\'_blank\')" onerror="this.outerHTML=\'<span style=\\\'color:#ff7b72;font-size:12px;\\\'>⚠️ 圖片載入失敗</span>\'">');
+  processed = processed.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, function (match, alt, url) {
+    let cleanUrl = url;
+    if (cleanUrl.includes("pollinations.ai")) {
+      if (!cleanUrl.includes("model=")) {
+        cleanUrl += (cleanUrl.includes("?") ? "&" : "?") + "model=sana";
+      }
+      if (!cleanUrl.includes("nologo=")) {
+        cleanUrl += "&nologo=true";
+      }
+    }
+    const escapedUrl = cleanUrl.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return `<img class="md-img" src="${cleanUrl}" alt="${alt}" title="${alt}" loading="lazy" onclick="window.open(this.src,'_blank')" onerror="this.onerror=null; this.outerHTML='<span class=\\'img-load-fail\\' style=\\'display:inline-flex;align-items:center;gap:6px;color:#ff7b72;font-size:12px;background:rgba(255,123,114,0.08);padding:4px 8px;border-radius:6px;border:1px solid rgba(255,123,114,0.2);\\'>⚠️ 圖片載入失敗 <button type=\\'button\\' class=\\'btn btn-sm\\' onclick=\\'window.retryImg && window.retryImg(this, &quot;${escapedUrl}&quot;)\\' style=\\'margin-left:4px;padding:1px 6px;font-size:11px;cursor:pointer;\\'>🔄 重試</button> <a href=\\'${cleanUrl}\\' target=\\'_blank\\' rel=\\'noopener noreferrer\\' style=\\'color:#58a6ff;text-decoration:underline;margin-left:4px;\\'>開啟連結</a></span>';">`;
+  });
 
   // Links
   processed = processed.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
@@ -1216,7 +1354,7 @@ function renderMarkdownBody(text) {
 function md(t) {
   if (!t) return "";
   let thinkHtml = "";
-  let mainText = t;
+  let mainText = t.replace(/<\/?tool_call[^>]*>/gi, "").replace(/\[\/?TOOL_CALLS\]/gi, "");
 
   if (mainText.includes("<think>")) {
     const thinkParts = mainText.split("<think>");

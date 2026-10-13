@@ -115,9 +115,20 @@ while ($listener.IsListening) {
       $req = $reader.ReadToEnd() | ConvertFrom-Json
       $output = ""
       try {
-        if ($req.action -eq "command") { $output = Invoke-Expression $req.command | Out-String }
+        if ($req.action -eq "command") { $output = Invoke-Expression "$($req.command) 2>&1" | Out-String }
         elseif ($req.action -eq "read") { $output = Get-Content $req.path -Raw }
-        elseif ($req.action -eq "open") { Start-Process $req.path; $output = "Opened $($req.path)" }
+        elseif ($req.action -eq "open") {
+          $target = $req.path.ToString().Trim().Trim('"').Trim("'")
+          if ($target -match '^([^\s]+)\s+(.+)$' -and -not (Test-Path $target)) {
+            $exe = $matches[1]
+            $argsList = $matches[2]
+            Start-Process -FilePath $exe -ArgumentList $argsList
+            $output = "Opened $exe with arguments $argsList"
+          } else {
+            Start-Process $target
+            $output = "Opened $target"
+          }
+        }
         elseif ($req.action -eq "list") {
           $targetPath = if ([string]::IsNullOrWhiteSpace($req.path)) { "." } else { $req.path }
           $depth = if ($req.depth) { [int]$req.depth } else { 1 }
